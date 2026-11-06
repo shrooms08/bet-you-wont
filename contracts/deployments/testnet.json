@@ -31,9 +31,10 @@
   "smokeTest": {
     "groupId": 1,
     "passedDareId": 1,
-    "pendingAcceptedDareId": 2,
+    "pendingAcceptedDareId": null,
     "pendingDareProofDeadlineUtc": "2026-11-06T09:24:41Z",
-    "cancelledDareId": 3
+    "cancelledDareId": 3,
+    "expiredDareId": 2
   },
   "transactions": {
     "deploy": [
@@ -200,6 +201,26 @@
         "block": 149423464,
         "gasUsed": 48525,
         "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x7fcedddd273b455f10c2bfe7bb2df24bf56dc57335f1b73ba44c0277fc2149e8"
+      }
+    ],
+    "phase3a": [
+      {
+        "step": "fund.sh test: 0.0001 ETH to C",
+        "hash": "0x5e74d4a8d3b707906c1a5d159b29a14b67e0c85e949b667db497fd90234f2621",
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x5e74d4a8d3b707906c1a5d159b29a14b67e0c85e949b667db497fd90234f2621"
+      },
+      {
+        "step": "fund.sh test: 10 mWIF to C",
+        "hash": "0xd69ddd8b84fd9c7a52432a0031ef8a595bf6eea5cba1ce50eaa266ec91f0b218",
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xd69ddd8b84fd9c7a52432a0031ef8a595bf6eea5cba1ce50eaa266ec91f0b218"
+      },
+      {
+        "step": "deployer settle(2) -> Expired, 1,000 mWIF refunded, 0 burned",
+        "hash": "0xcc800e5eb2a576565d22ba4c5d23ce4eb16f11500c2d2ed87292dc67265da327",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149446636,
+        "gasUsed": 47815,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xcc800e5eb2a576565d22ba4c5d23ce4eb16f11500c2d2ed87292dc67265da327"
       }
     ]
   }
