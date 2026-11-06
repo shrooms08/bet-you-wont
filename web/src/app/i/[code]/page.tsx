@@ -1,13 +1,12 @@
 import { Suspense } from "react";
-import { Shell } from "@/components/harness/ui";
-import { InviteClient } from "./InviteClient";
+import { InviteOnboarding } from "@/components/onboarding/InviteOnboarding";
+import { Splash } from "@/components/ui/Splash";
 
-// /i/<code>: invite landing page. The code is only known at request time, so the client part
-// sits inside Suspense (required with cacheComponents).
+// /i/<code>: invite link. Onboarding with the invite preview on every step; joins after the wallet step.
 export default function InvitePage({ params }: { params: Promise<{ code: string }> }) {
   return (
-    <Suspense fallback={<Shell>Loading invite…</Shell>}>
-      <InviteClient params={params} />
+    <Suspense fallback={<Splash />}>
+      <InviteOnboarding params={params} />
     </Suspense>
   );
 }

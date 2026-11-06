@@ -1,1 +1,125 @@
 @import "tailwindcss";
+@import "./theme.css";
+
+:root {
+  /* bottom nav: 56px buttons + 6px lip + 14px top + 16px bottom padding */
+  --nav-h: 92px;
+  color-scheme: dark;
+}
+
+html {
+  background: var(--byw-bg);
+}
+
+body {
+  background: var(--byw-bg);
+  color: var(--byw-text);
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::placeholder {
+  color: var(--byw-muted);
+  opacity: 1;
+}
+
+/* Visible focus for keyboard users everywhere. */
+:focus-visible {
+  outline: 3px solid var(--byw-primary);
+  outline-offset: 3px;
+}
+
+@layer components {
+  /* The raised card: 3px border, 32px radius, solid bottom lip. */
+  .raised {
+    background: var(--byw-surface);
+    border: 3px solid var(--byw-border);
+    border-radius: 32px;
+    box-shadow: 0 6px 0 var(--byw-lip);
+  }
+
+  /* Anything pressable: lip shrinks to 2px and the element drops 4px. */
+  .press {
+    box-shadow: 0 6px 0 var(--byw-lip);
+    transition:
+      transform 80ms ease-out,
+      box-shadow 80ms ease-out;
+  }
+  .press:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 var(--byw-lip);
+  }
+
+  .field {
+    min-height: 52px;
+    width: 100%;
+    border-radius: 999px;
+    border: 3px solid var(--byw-border);
+    background: var(--byw-inset);
+    padding: 0 20px;
+    font-weight: 800;
+    font-size: 17px;
+    letter-spacing: -0.03em;
+    color: var(--byw-text);
+  }
+
+  /* Space under content so the fixed bottom nav never covers it. */
+  .pb-nav {
+    padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);
+  }
+}
+
+@keyframes byw-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+@keyframes byw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes byw-pop {
+  0% {
+    transform: scale(1.6) rotate(-20deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0.94) rotate(-6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(-8deg);
+    opacity: 1;
+  }
+}
+.animate-byw-pulse {
+  animation: byw-pulse 1.4s ease-in-out infinite;
+}
+.animate-byw-spin {
+  animation: byw-spin 0.9s linear infinite;
+}
+.animate-byw-pop {
+  animation: byw-pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .press:active:not(:disabled) {
+    transform: none;
+  }
+}

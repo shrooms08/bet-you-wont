@@ -84,12 +84,26 @@ export async function groupsForWallet(wallet: string) {
 
   const [groups, members, live] = await Promise.all([
     db().from("groups").select("*").in("id", ids),
-    db().from("group_members").select("group_id").in("group_id", ids),
+    db().from("group_members").select("group_id, wallet_address, joined_at").in("group_id", ids).order("joined_at"),
     db().from("dares").select("group_id").in("group_id", ids).in("state", LIVE_STATES as string[]),
   ]);
   const groupRows = check(groups, "loading groups") as GroupRow[];
-  const memberCount = countBy(check(members, "counting members") as Array<{ group_id: number }>);
+  const memberRows = check(members, "counting members") as Array<{ group_id: number; wallet_address: string }>;
+  const memberCount = countBy(memberRows);
   const liveCount = countBy(check(live, "counting dares") as Array<{ group_id: number }>);
+  // Up to 5 member previews per group for avatar stacks (people with a profile first).
+  const firstWallets = new Map<number, string[]>();
+  for (const m of memberRows) {
+    const list = firstWallets.get(Number(m.group_id)) ?? [];
+    if (list.length < 12) list.push(m.wallet_address);
+    firstWallets.set(Number(m.group_id), list);
+  }
+  const profiles = await profilesByWallet([...firstWallets.values()].flat());
+  const previews = (gid: number) =>
+    (firstWallets.get(gid) ?? [])
+      .sort((a, b) => Number(!!profiles.get(b)) - Number(!!profiles.get(a)))
+      .slice(0, 5)
+      .map((w) => toPublic(w, profiles.get(w)));
 
   return groupRows
     .map((g) => ({
@@ -101,6 +115,7 @@ export async function groupsForWallet(wallet: string) {
       inviteCode: g.invite_code, // any member may share the invite link
       memberCount: memberCount.get(g.id) ?? 0,
       liveDareCount: liveCount.get(g.id) ?? 0,
+      members: previews(Number(g.id)),
       joinedAt: memberships.find((m) => m.group_id === g.id)?.joined_at ?? null,
     }))
     .sort((a, b) => b.id - a.id);

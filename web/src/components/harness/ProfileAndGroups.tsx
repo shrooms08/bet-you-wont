@@ -5,7 +5,7 @@ import { useState } from "react";
 import { parseEventLogs } from "viem";
 import { activeChain, escrowAbi, escrowAddress } from "@/lib/contracts";
 import { describeError } from "@/lib/errors";
-import { uploadFile } from "./upload";
+import { uploadFile } from "@/lib/upload";
 import { useMe, type Byw } from "./useByw";
 import { btn, btnGray, IDLE, input, link, Section, TxView, Who, type TxState } from "./ui";
 

@@ -1,0 +1,105 @@
+/*
+ * BYW design tokens.
+ *
+ * Source: design/"Bet You Won't - 6 Color Harmonies.html" (BYWPrototypeOffline THEMES.comp).
+ * Harmony A "complementary": base lime #B8DA3C + its complement violet #7B5CE6, lightness-nudged
+ * to #7251E4 where it carries text (secondary buttons, the OPEN tag) so it passes 4.5:1.
+ *
+ * Swapping harmonies later = add another [data-harmony="..."] block with the same --byw-* names.
+ * Components only ever use the Tailwind names from @theme below, never raw hex.
+ */
+
+:root,
+[data-harmony="comp"] {
+  /* neutrals (shared by every harmony) */
+  --byw-page: #0c0c0f;
+  --byw-bg: #131317;
+  --byw-surface: #212126;
+  --byw-inset: #1a1a1f;
+  --byw-border: #3a3a41;
+  --byw-lip: #2b2b31;
+  --byw-text: #f2f0e6;
+  --byw-muted: #9c9a92;
+
+  /* roles */
+  --byw-primary: #b8da3c; /* lime: primary buttons, active nav, PASSED */
+  --byw-on-primary: #14141a;
+  --byw-secondary: #7251e4; /* violet: secondary buttons, OPEN */
+  --byw-on-secondary: #f2f0e6;
+  /* Danger is orange (#D9784F, the prototype's base danger) as the 3c-2a brief asks.
+     Harmony A in the design file uses deep violet #421DBF here; flip this one line to match it. */
+  --byw-danger: #d9784f;
+  --byw-on-danger: #14141a;
+  --byw-accent: #9077ea; /* violet text accent: headline line 1 on group screens */
+  --byw-accent-2: #b8da3c; /* lime text accent: headline line 1 on home, key phrases */
+  --byw-money: #9077ea;
+
+  /* status tags: [bg, fg] */
+  --byw-tag-open-bg: #7251e4;
+  --byw-tag-open-fg: #f2f0e6;
+  --byw-tag-accepted-bg: #cabdf5;
+  --byw-tag-accepted-fg: #14141a;
+  --byw-tag-voting-bg: #f2f0e6;
+  --byw-tag-voting-fg: #14141a;
+  --byw-tag-passed-bg: #b8da3c;
+  --byw-tag-passed-fg: #14141a;
+  --byw-tag-failed-bg: #421dbf;
+  --byw-tag-failed-fg: #f2f0e6;
+  --byw-tag-expired-bg: #55555d;
+  --byw-tag-expired-fg: #f2f0e6;
+}
+
+@theme inline {
+  --color-page: var(--byw-page);
+  --color-bg: var(--byw-bg);
+  --color-surface: var(--byw-surface);
+  --color-inset: var(--byw-inset);
+  --color-line: var(--byw-border);
+  --color-lip: var(--byw-lip);
+  --color-cream: var(--byw-text);
+  --color-muted: var(--byw-muted);
+  --color-primary: var(--byw-primary);
+  --color-on-primary: var(--byw-on-primary);
+  --color-secondary: var(--byw-secondary);
+  --color-on-secondary: var(--byw-on-secondary);
+  --color-danger: var(--byw-danger);
+  --color-on-danger: var(--byw-on-danger);
+  --color-accent: var(--byw-accent);
+  --color-accent-2: var(--byw-accent-2);
+  --color-money: var(--byw-money);
+  --color-tag-open: var(--byw-tag-open-bg);
+  --color-tag-open-fg: var(--byw-tag-open-fg);
+  --color-tag-accepted: var(--byw-tag-accepted-bg);
+  --color-tag-accepted-fg: var(--byw-tag-accepted-fg);
+  --color-tag-voting: var(--byw-tag-voting-bg);
+  --color-tag-voting-fg: var(--byw-tag-voting-fg);
+  --color-tag-passed: var(--byw-tag-passed-bg);
+  --color-tag-passed-fg: var(--byw-tag-passed-fg);
+  --color-tag-failed: var(--byw-tag-failed-bg);
+  --color-tag-failed-fg: var(--byw-tag-failed-fg);
+  --color-tag-expired: var(--byw-tag-expired-bg);
+  --color-tag-expired-fg: var(--byw-tag-expired-fg);
+
+  --font-display: var(--font-archivo-black), "Archivo Black", system-ui, sans-serif;
+  --font-body: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
+  --font-hand: var(--font-caveat-brush), "Caveat Brush", cursive;
+
+  --radius-card: 32px;
+  --radius-field: 28px;
+  --radius-pill: 999px;
+
+  --shadow-lip: 0 6px 0 var(--byw-lip);
+  --shadow-lip-sm: 0 2px 0 var(--byw-lip);
+
+  /* type scale (from the prototype) */
+  --text-headline: 44px;
+  --text-headline--line-height: 0.92;
+  --text-headline-lg: 64px;
+  --text-headline-lg--line-height: 0.9;
+  --text-dare: 22px;
+  --text-dare--line-height: 1.1;
+
+  /* breakpoints: mobile < 768, tablet 768-1199, desktop >= 1200 */
+  --breakpoint-tab: 768px;
+  --breakpoint-desk: 1200px;
+}

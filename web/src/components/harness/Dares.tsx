@@ -1,11 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { maxUint256, parseUnits, zeroAddress, type Address, type Hex } from "viem";
 import { activeChain, escrowAbi, escrowAddress, explorerTx, tokenAbi, tokenAddress, tokenSymbol } from "@/lib/contracts";
 import { describeError } from "@/lib/errors";
-import { uploadFile } from "./upload";
+import { uploadFile } from "@/lib/upload";
 import { useMe, type Byw, type DareView, type Feed, type Home } from "./useByw";
 import { Amount, btn, btnGray, fmtTime, IDLE, input, link, Row, Section, TxView, Who, type TxState } from "./ui";
 
@@ -55,6 +55,16 @@ export function CreateDareSection({ byw }: { byw: Byw }) {
   const [voteWindow, setVoteWindow] = useState<number>(3600);
   const [tx, setTx] = useState<TxState>(IDLE);
 
+  // Prefill from /dev?group=<id>&text=<dare> (the app's /new placeholder links here).
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const g = Number(q.get("group"));
+    const t = q.get("text");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL on mount
+    if (g > 0) setGroupId(g);
+    if (t) setText(t.slice(0, 140));
+  }, []);
+
   async function create() {
     if (!byw.address || !byw.publicClient || groupId === null) return;
     const account = byw.address;
@@ -103,6 +113,7 @@ export function CreateDareSection({ byw }: { byw: Byw }) {
   const others = feed.data?.members.filter((m) => m.wallet !== byw.address?.toLowerCase()) ?? [];
   return (
     <Section title="5. Create a dare">
+      <span id="create" />
       <GroupPicker byw={byw} value={groupId} onChange={setGroupId} />
       <textarea
         className={input}

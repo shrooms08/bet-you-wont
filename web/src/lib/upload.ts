@@ -1,0 +1,22 @@
+"use client";
+
+import type { Byw } from "@/hooks/useByw";
+
+/**
+ * Asks our API for a signed upload URL, then PUTs the bytes straight to Supabase storage.
+ * Returns the storage path to hand back to the API (profile avatarPath / proofs finalize).
+ */
+export async function uploadFile(byw: Byw, kind: "avatar" | "proof", file: Blob, name = ""): Promise<string> {
+  const mime = file.type || (name.toLowerCase().endsWith(".heic") ? "image/heic" : "");
+  const { signedUrl, path } = await byw.api<{ signedUrl: string; path: string }>("/api/upload-url", {
+    body: { kind, mime, size: file.size },
+  });
+  const res = await fetch(signedUrl, {
+    method: "PUT",
+    cache: "no-store",
+    headers: { "content-type": mime, "x-upsert": "false" },
+    body: file,
+  });
+  if (!res.ok) throw new Error(`Upload failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  return path;
+}

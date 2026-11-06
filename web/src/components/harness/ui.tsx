@@ -1,17 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { formatUnits, type Hex } from "viem";
+import { formatUnits } from "viem";
 import { explorerTx, tokenSymbol } from "@/lib/contracts";
 import { usePrice, type PublicProfile } from "./useByw";
 
-export type TxState =
-  | { status: "idle" }
-  | { status: "working"; step: string; hash?: Hex }
-  | { status: "done"; hash?: Hex; message: string }
-  | { status: "error"; message: string; hash?: Hex };
-
-export const IDLE: TxState = { status: "idle" };
+export { IDLE, type TxState } from "@/lib/tx";
+import type { TxState } from "@/lib/tx";
 
 export function TxView({ tx }: { tx: TxState }) {
   if (tx.status === "idle") return null;
@@ -92,7 +87,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 sm:p-6">
       <h1 className="text-2xl font-bold">Bet You Won&apos;t</h1>
-      <p className="text-sm text-neutral-500">Phase 3c-1 test harness (testnet). Ugly on purpose; the real UI is 3c-2.</p>
+      <p className="text-sm text-neutral-500">Dev harness (testnet, development only). The real app is at /.</p>
       {children}
     </main>
   );
