@@ -6,6 +6,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @notice Minimal interface for a token that lets a holder destroy its own balance.
 interface IBurnable {
@@ -14,12 +16,13 @@ interface IBurnable {
 
 /// @title Bet You Won't (BYW) escrow
 /// @notice Friends in a group dare each other. The dare's creator locks a token bounty. The doer accepts,
-///         posts proof, and the group votes. The contract then pays the doer (pass) or refunds the creator
-///         (fail), and burns a share of the bounty either way.
+///         posts proof, and the rest of the group votes. The contract then pays the doer (pass) or refunds
+///         the creator (fail), burning a share of the bounty. If the doer never posts proof, the creator
+///         gets everything back and nothing is burned.
 /// @dev No function moves escrowed tokens except `cancelDare` and `settle`. There is no upgradeability,
 ///      no receive/fallback, and no EOA / tx.origin / extcodesize checks: user wallets are EIP-7702
-///      smart accounts and have code.
-contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
+///      smart accounts and have code. Joining a group needs an EIP-712 permit signed by `inviteSigner`.
+contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard, EIP712 {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------------
@@ -31,16 +34,22 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
         Open, // created, waiting for someone to accept
         Accepted, // a doer accepted, proof not yet submitted
         Voting, // proof submitted, group is voting
-        Settled, // paid out and burned
+        Settled, // paid out (and burned, unless expired)
         Cancelled // creator cancelled before anyone accepted, fully refunded
+    }
+
+    enum Outcome {
+        None, // not settled
+        Passed, // group voted the dare done: doer 95%, 5% burned
+        Failed, // group voted the dare not done: creator 90%, 10% burned
+        Expired // no proof before the deadline: creator 100%, nothing burned
     }
 
     struct Group {
         address creator;
-        bool isPublic;
+        bool isPublic; // label for the frontend only; joining always needs a signed permit
         uint32 memberCount;
         uint64 createdAt;
-        bytes32 inviteHash;
     }
 
     /// @dev `seq` is the member's 1-based join order inside the group. It gives an exact voter snapshot:
@@ -56,8 +65,7 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
         uint32 doDuration;
         uint32 voteWindow;
         DareState state;
-        bool passed;
-        bool creatorVotes;
+        Outcome outcome;
         // slot 1
         address target;
         uint64 acceptedAt;
@@ -83,9 +91,13 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
     // Constants and immutables
     // ---------------------------------------------------------------------
 
+    /// @notice EIP-712 typehash of the join permit the invite signer signs.
+    bytes32 public constant JOIN_PERMIT_TYPEHASH =
+        keccak256("JoinPermit(uint256 groupId,address account,uint256 deadline)");
+
     /// @notice Share of the bounty burned when the dare passes (5%).
     uint256 public constant PASS_BURN_BPS = 500;
-    /// @notice Share of the bounty burned when the dare fails (10%).
+    /// @notice Share of the bounty burned when the dare fails by vote (10%).
     uint256 public constant FAIL_BURN_BPS = 1000;
     uint256 public constant BPS_DENOMINATOR = 10_000;
     /// @notice The owner can never raise the max bounty above this.
@@ -94,6 +106,8 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
     uint256 public constant MIN_BOUNTY = 1e18;
     uint32 public constant MIN_DO_DURATION = 1 hours;
     uint32 public constant MAX_DO_DURATION = 7 days;
+    /// @notice A group needs this many members to create a dare: creator, doer, and at least one witness.
+    uint32 public constant MIN_GROUP_SIZE = 3;
 
     /// @notice The bounty token ($wif).
     IERC20 public immutable token;
@@ -102,6 +116,8 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
     // Storage
     // ---------------------------------------------------------------------
 
+    /// @notice Backend address whose EIP-712 signatures let accounts join groups.
+    address public inviteSigner;
     /// @notice Largest bounty currently allowed for a new dare.
     uint256 public maxBounty = 500_000e18;
     /// @notice Number of groups created. Group ids run from 1 to groupCount.
@@ -120,7 +136,7 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
 
     event GroupCreated(uint256 indexed groupId, address indexed creator, bool isPublic);
     event MemberJoined(uint256 indexed groupId, address indexed member);
-    event InviteHashUpdated(uint256 indexed groupId);
+    event InviteSignerUpdated(address indexed oldSigner, address indexed newSigner);
     event DareCreated(
         uint256 indexed dareId,
         uint256 indexed groupId,
@@ -133,9 +149,11 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
     );
     event DareCancelled(uint256 indexed dareId);
     event DareAccepted(uint256 indexed dareId, address indexed doer, uint64 proofDeadline);
-    event ProofSubmitted(uint256 indexed dareId, bytes32 proofHash, uint64 voteEnd, uint32 eligible, bool creatorVotes);
+    event ProofSubmitted(uint256 indexed dareId, bytes32 proofHash, uint64 voteEnd, uint32 eligible);
     event Voted(uint256 indexed dareId, address indexed voter, bool pass);
-    event DareSettled(uint256 indexed dareId, bool passed, address indexed recipient, uint256 payout, uint256 burned);
+    event DareSettled(
+        uint256 indexed dareId, Outcome outcome, address indexed recipient, uint256 payout, uint256 burned
+    );
     event MaxBountyUpdated(uint256 newMax);
 
     // ---------------------------------------------------------------------
@@ -146,8 +164,9 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
     error GroupNotFound();
     error AlreadyMember();
     error NotMember();
-    error InvalidInviteCode();
-    error NotGroupCreator();
+    error PermitExpired();
+    error InvalidPermitSigner();
+    error GroupTooSmall();
     error InvalidTarget();
     error AmountOutOfRange();
     error InvalidDoDuration();
@@ -172,9 +191,12 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
 
     /// @notice Deploys the escrow for one bounty token. The deployer becomes the owner.
     /// @param token_ The bounty token. It must support `burn(uint256)` on the caller's own balance.
-    constructor(IERC20 token_) Ownable(msg.sender) {
-        if (address(token_) == address(0)) revert ZeroAddress();
+    /// @param inviteSigner_ Backend address that signs join permits.
+    constructor(IERC20 token_, address inviteSigner_) Ownable(msg.sender) EIP712("BYWEscrow", "1") {
+        if (address(token_) == address(0) || inviteSigner_ == address(0)) revert ZeroAddress();
         token = token_;
+        inviteSigner = inviteSigner_;
+        emit InviteSignerUpdated(address(0), inviteSigner_);
     }
 
     // ---------------------------------------------------------------------
@@ -182,34 +204,33 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
     // ---------------------------------------------------------------------
 
     /// @notice Creates a new group. You become its first member.
-    /// @param inviteHash keccak256 of the invite code people need to join. Ignored for public groups.
-    /// @param isPublic If true, anyone can join without a code.
+    /// @param isPublic A label for the app (listed or not). It does not change who can join: joining
+    ///        always needs a permit signed by the invite signer.
     /// @return groupId The new group's id (starts at 1).
-    function createGroup(bytes32 inviteHash, bool isPublic) external whenNotPaused returns (uint256 groupId) {
+    function createGroup(bool isPublic) external whenNotPaused returns (uint256 groupId) {
         groupId = ++groupCount;
-        _groups[groupId] = Group({
-            creator: msg.sender,
-            isPublic: isPublic,
-            memberCount: 1,
-            createdAt: uint64(block.timestamp),
-            inviteHash: inviteHash
-        });
+        _groups[groupId] =
+            Group({creator: msg.sender, isPublic: isPublic, memberCount: 1, createdAt: uint64(block.timestamp)});
         _members[groupId][msg.sender] = Member({joinedAt: uint64(block.timestamp), seq: 1});
 
         emit GroupCreated(groupId, msg.sender, isPublic);
         emit MemberJoined(groupId, msg.sender);
     }
 
-    /// @notice Joins a group. Public groups need no code; private groups need the invite code.
-    /// @dev The code is sent in plain text, so anyone reading the chain learns it once it is used.
-    ///      Group creators should rotate it with `setInviteHash` if that matters.
+    /// @notice Joins a group using a permit the BYW backend signed for you. Works while paused.
+    /// @dev The permit names the joining account, so a permit copied from someone else's transaction is
+    ///      useless to any other wallet. Membership is permanent, so a permit can only be used once.
     /// @param groupId The group to join.
-    /// @param inviteCode The invite code in plain text. Ignored for public groups.
-    function joinGroup(uint256 groupId, string calldata inviteCode) external {
+    /// @param deadline Last timestamp at which the permit is valid.
+    /// @param signature The invite signer's EIP-712 signature over JoinPermit(groupId, msg.sender, deadline).
+    function joinGroup(uint256 groupId, uint256 deadline, bytes calldata signature) external {
         Group storage g = _groups[groupId];
         if (g.creator == address(0)) revert GroupNotFound();
+        if (block.timestamp > deadline) revert PermitExpired();
         if (_members[groupId][msg.sender].seq != 0) revert AlreadyMember();
-        if (!g.isPublic && keccak256(bytes(inviteCode)) != g.inviteHash) revert InvalidInviteCode();
+        if (ECDSA.recover(joinPermitDigest(groupId, msg.sender, deadline), signature) != inviteSigner) {
+            revert InvalidPermitSigner();
+        }
 
         uint32 seq = ++g.memberCount;
         _members[groupId][msg.sender] = Member({joinedAt: uint64(block.timestamp), seq: seq});
@@ -217,22 +238,13 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
         emit MemberJoined(groupId, msg.sender);
     }
 
-    /// @notice Changes a group's invite code. Only the group's creator can do this.
-    /// @param groupId The group to update.
-    /// @param newHash keccak256 of the new invite code.
-    function setInviteHash(uint256 groupId, bytes32 newHash) external {
-        Group storage g = _groups[groupId];
-        if (g.creator == address(0)) revert GroupNotFound();
-        if (msg.sender != g.creator) revert NotGroupCreator();
-        g.inviteHash = newHash;
-        emit InviteHashUpdated(groupId);
-    }
-
     // ---------------------------------------------------------------------
     // Dares
     // ---------------------------------------------------------------------
 
     /// @notice Creates a dare and locks the bounty in escrow. You must have approved this contract first.
+    /// @dev The group needs at least 3 members, so there is always someone besides the creator and the
+    ///      doer to vote.
     /// @param groupId The group the dare belongs to. You must be a member.
     /// @param target The member being dared, or address(0) to let any other member accept.
     /// @param amount Bounty in token units (18 decimals). Between 1 token and `maxBounty`.
@@ -249,6 +261,7 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
         bytes32 metaHash
     ) external whenNotPaused nonReentrant returns (uint256 dareId) {
         if (!isMember(groupId, msg.sender)) revert NotMember();
+        if (_groups[groupId].memberCount < MIN_GROUP_SIZE) revert GroupTooSmall();
         if (target != address(0) && (target == msg.sender || !isMember(groupId, target))) revert InvalidTarget();
         if (amount < MIN_BOUNTY || amount > maxBounty) revert AmountOutOfRange();
         if (doDuration < MIN_DO_DURATION || doDuration > MAX_DO_DURATION) revert InvalidDoDuration();
@@ -310,7 +323,6 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
 
     /// @notice Posts proof that you did the dare and opens the group vote.
     /// @dev Snapshots who may vote: members who had joined by this moment, minus the doer and the creator.
-    ///      If nobody else is in the group, the creator becomes the only voter.
     /// @param dareId The dare you accepted.
     /// @param proofHash keccak256 (or content hash) of the proof stored off-chain.
     function submitProof(uint256 dareId, bytes32 proofHash) external {
@@ -319,14 +331,10 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
         if (msg.sender != d.doer) revert NotDoer();
         if (block.timestamp > d.proofDeadline) revert ProofDeadlinePassed();
 
-        // The creator and the doer are both members (members can never leave), so memberCount >= 2.
+        // memberCount was >= MIN_GROUP_SIZE (3) when the dare was created and members can never leave,
+        // so eligible >= 1. The creator and the doer are both counted in memberCount.
         uint32 members = _groups[d.groupId].memberCount;
         uint32 eligible = members - 2;
-        bool creatorVotes = false;
-        if (eligible == 0) {
-            creatorVotes = true;
-            eligible = 1;
-        }
 
         uint64 voteEnd = uint64(block.timestamp) + d.voteWindow;
         d.proofHash = proofHash;
@@ -334,15 +342,14 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
         d.voteEnd = voteEnd;
         d.membersAtProof = members;
         d.eligible = eligible;
-        d.creatorVotes = creatorVotes;
         d.state = DareState.Voting;
 
-        emit ProofSubmitted(dareId, proofHash, voteEnd, eligible, creatorVotes);
+        emit ProofSubmitted(dareId, proofHash, voteEnd, eligible);
     }
 
     /// @notice Votes on whether the doer completed the dare.
-    /// @dev Only members who had joined by the time proof was posted can vote. The doer can never vote.
-    ///      The creator can vote only when they are the sole eligible voter.
+    /// @dev Only members who had joined by the time proof was posted can vote. The doer and the creator
+    ///      can never vote.
     /// @param dareId The dare being voted on.
     /// @param pass True if the dare was done, false if not.
     function vote(uint256 dareId, bool pass) external {
@@ -357,7 +364,7 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
         // mirrors the spec's wording and is implied by the seq check.
         if (m.seq > d.membersAtProof || m.joinedAt > d.proofAt) revert NotEligibleVoter();
         if (msg.sender == d.doer) revert DoerCannotVote();
-        if (msg.sender == d.creator && !d.creatorVotes) revert CreatorCannotVote();
+        if (msg.sender == d.creator) revert CreatorCannotVote();
 
         _voted[dareId][msg.sender] = true;
         if (pass) {
@@ -370,41 +377,41 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     /// @notice Settles a dare once its result is known. Anyone can call this.
-    /// @dev Settles when (a) the doer missed the proof deadline (fail), or (b) voting is over or the
-    ///      result is already locked by votes. Pass: doer gets 95%, 5% is burned. Fail: creator gets
-    ///      90%, 10% is burned. Burning calls token.burn, so total supply goes down.
+    /// @dev Expired (no proof by the deadline): creator gets 100%, nothing burned.
+    ///      Passed: doer gets 95%, 5% burned. Failed: creator gets 90%, 10% burned.
+    ///      Burning calls token.burn, so total supply goes down.
     /// @param dareId The dare to settle.
     function settle(uint256 dareId) external nonReentrant {
         Dare storage d = _dares[dareId];
+        (bool canSettle, Outcome outcome) = _resolve(d);
+        if (!canSettle) revert NotResolvable();
 
-        bool passed;
-        if (d.state == DareState.Accepted) {
-            if (block.timestamp <= d.proofDeadline) revert NotResolvable();
-            passed = false;
-        } else if (d.state == DareState.Voting) {
-            bool decided;
-            (decided, passed) = _outcomeOf(d);
-            if (!decided) revert NotResolvable();
-        } else {
-            revert NotResolvable();
-        }
-
+        uint256 bps = outcome == Outcome.Passed ? PASS_BURN_BPS : outcome == Outcome.Failed ? FAIL_BURN_BPS : 0;
         uint256 amount = d.amount;
-        uint256 burned = amount * (passed ? PASS_BURN_BPS : FAIL_BURN_BPS) / BPS_DENOMINATOR;
+        uint256 burned = amount * bps / BPS_DENOMINATOR;
         uint256 payout = amount - burned;
-        address recipient = passed ? d.doer : d.creator;
+        address recipient = outcome == Outcome.Passed ? d.doer : d.creator;
 
         d.state = DareState.Settled;
-        d.passed = passed;
-        emit DareSettled(dareId, passed, recipient, payout, burned);
+        d.outcome = outcome;
+        emit DareSettled(dareId, outcome, recipient, payout, burned);
 
         token.safeTransfer(recipient, payout);
-        IBurnable(address(token)).burn(burned);
+        if (burned != 0) IBurnable(address(token)).burn(burned);
     }
 
     // ---------------------------------------------------------------------
     // Owner
     // ---------------------------------------------------------------------
+
+    /// @notice Replaces the backend address that signs join permits. Owner only.
+    /// @dev Permits signed by the old signer stop working immediately, including unexpired ones.
+    /// @param newSigner The new invite signer. Cannot be the zero address.
+    function setInviteSigner(address newSigner) external onlyOwner {
+        if (newSigner == address(0)) revert ZeroAddress();
+        emit InviteSignerUpdated(inviteSigner, newSigner);
+        inviteSigner = newSigner;
+    }
 
     /// @notice Sets the largest bounty allowed for new dares. Owner only. Never above HARD_CAP.
     /// @param newMax New maximum, between 1 token and HARD_CAP.
@@ -429,6 +436,12 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
     // Views
     // ---------------------------------------------------------------------
 
+    /// @notice The EIP-712 digest the invite signer must sign to let `account` join `groupId`.
+    /// @dev Domain: name "BYWEscrow", version "1", this chain's id, this contract's address.
+    function joinPermitDigest(uint256 groupId, address account, uint256 deadline) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(JOIN_PERMIT_TYPEHASH, groupId, account, deadline)));
+    }
+
     /// @notice Whether an account is a member of a group.
     function isMember(uint256 groupId, address account) public view returns (bool) {
         return _members[groupId][account].seq != 0;
@@ -444,7 +457,8 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
         return _groups[groupId];
     }
 
-    /// @notice Returns all of a dare's fields, including its current state. State None means it does not exist.
+    /// @notice Returns all of a dare's fields, including its state and outcome. State None means it does
+    ///         not exist.
     function getDare(uint256 dareId) external view returns (Dare memory) {
         return _dares[dareId];
     }
@@ -454,24 +468,27 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
         return _voted[dareId][account];
     }
 
-    /// @notice Whether `settle` would succeed right now, and which way it would go.
+    /// @notice Whether `settle` would succeed right now, and with which outcome.
     /// @return canSettle True if `settle(dareId)` would succeed now.
-    /// @return wouldPass If canSettle, the result settle would produce. If voting is still open and
-    ///         undecided, the result if the vote ended with the current tally. False otherwise.
-    function resolvable(uint256 dareId) external view returns (bool canSettle, bool wouldPass) {
-        Dare storage d = _dares[dareId];
-        if (d.state == DareState.Accepted) {
-            return (block.timestamp > d.proofDeadline, false);
-        }
-        if (d.state == DareState.Voting) {
-            return _outcomeOf(d);
-        }
-        return (false, false);
+    /// @return outcome The outcome settle would produce, or None if it cannot settle yet.
+    function resolvable(uint256 dareId) external view returns (bool canSettle, Outcome outcome) {
+        return _resolve(_dares[dareId]);
     }
 
     // ---------------------------------------------------------------------
     // Internal
     // ---------------------------------------------------------------------
+
+    /// @dev Single source of truth for `settle` and `resolvable`.
+    function _resolve(Dare storage d) internal view returns (bool canSettle, Outcome outcome) {
+        if (d.state == DareState.Accepted) {
+            if (block.timestamp > d.proofDeadline) return (true, Outcome.Expired);
+        } else if (d.state == DareState.Voting) {
+            (bool decided, bool pass) = _outcomeOf(d);
+            if (decided) return (true, pass ? Outcome.Passed : Outcome.Failed);
+        }
+        return (false, Outcome.None);
+    }
 
     /// @dev Outcome rules for a dare in Voting:
     ///      - pass is locked early when passVotes * 2 >= eligible
@@ -480,7 +497,7 @@ contract BYWEscrow is Ownable2Step, Pausable, ReentrancyGuard {
     ///      Because the number of possible voters equals `eligible`, the two early locks can never both hold,
     ///      and a lock can never be undone by later votes.
     /// @return decided True if the result is final (locked or voting over).
-    /// @return pass The final result if decided, otherwise the current leaning.
+    /// @return pass The result if decided, otherwise the current leaning.
     function _outcomeOf(Dare storage d) internal view returns (bool decided, bool pass) {
         uint256 eligible = d.eligible;
         uint256 passVotes = d.passVotes;

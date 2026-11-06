@@ -23,7 +23,8 @@ contract BYWEscrowForkTest is Test {
         console2.log("forked at block", block.number);
 
         IERC20 wif = IERC20(WIF);
-        BYWEscrow escrow = new BYWEscrow(wif);
+        uint256 signerPk = 0x5161e57e570001; // TEST-ONLY key, local fork only
+        BYWEscrow escrow = new BYWEscrow(wif, vm.addr(signerPk));
 
         address creator = makeAddr("fork-creator");
         address doer = makeAddr("fork-doer");
@@ -36,12 +37,11 @@ contract BYWEscrowForkTest is Test {
 
         vm.startPrank(creator);
         wif.approve(address(escrow), amount);
-        uint256 gid = escrow.createGroup(keccak256("fork"), false);
+        uint256 gid = escrow.createGroup(false);
         vm.stopPrank();
-        vm.prank(doer);
-        escrow.joinGroup(gid, "fork");
-        vm.prank(voter);
-        escrow.joinGroup(gid, "fork");
+        _permitJoin(escrow, signerPk, gid, doer);
+        _permitJoin(escrow, signerPk, gid, voter);
+        assertEq(escrow.getGroup(gid).memberCount, 3);
 
         vm.prank(creator);
         uint256 id = escrow.createDare(gid, doer, amount, 1 hours, 15 minutes, keccak256("dare"));
@@ -68,6 +68,15 @@ contract BYWEscrowForkTest is Test {
         assertEq(wif.balanceOf(doer), amount - burned, "doer got 95%");
         assertEq(wif.balanceOf(address(escrow)), 0, "escrow empty");
         assertEq(wif.balanceOf(0x000000000000000000000000000000000000dEaD), deadBefore, "no transfer to dEaD");
-        assertTrue(escrow.getDare(id).passed);
+        assertEq(uint8(escrow.getDare(id).outcome), uint8(BYWEscrow.Outcome.Passed));
+    }
+
+    /// @dev Signs the permit with the test key over the contract's digest and joins. The digest itself is
+    ///      checked independently of the contract in BYWEscrow.t.sol.
+    function _permitJoin(BYWEscrow escrow, uint256 pk, uint256 gid, address who) internal {
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, escrow.joinPermitDigest(gid, who, deadline));
+        vm.prank(who);
+        escrow.joinGroup(gid, deadline, abi.encodePacked(r, s, v));
     }
 }
