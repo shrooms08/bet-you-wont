@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { useFeedPosts, useReaction, type Session } from "@/hooks/data";
 import type { Actions } from "@/hooks/useActions";
-import { groupName, handle, timeAgo } from "@/lib/format";
+import { groupName, handle, PUBLIC_GROUP_ID, timeAgo } from "@/lib/format";
 import { useMockMode, withMock } from "@/lib/mock";
 import type { Story } from "@/lib/stories";
 import type { FeedItem } from "@/lib/types";
@@ -79,10 +79,12 @@ function MediaPost({ it, s, actions, now }: { it: FeedItem; s: Session; actions:
   const busy = actions.busy?.endsWith(`:${it.id}`) ?? false;
   const kind = tagFor(it.state, it.outcome);
   const isVideo = it.proofKind === "video" || it.proofMime?.startsWith("video/");
+  // anyone who can see a dare can 🔥 it: crew members, or anyone for the public crew
+  const canReact = it.member || it.groupId === PUBLIC_GROUP_ID;
   return (
     <article className="flex flex-col gap-3" aria-label={`proof for dare ${it.id}`}>
       <PostHeader it={it} now={now} />
-      <DoubleTapBurst onReact={() => it.member && !it.reacted && react.mutate(it.id)} className="overflow-hidden rounded-[28px] border-[3px] border-line bg-black">
+      <DoubleTapBurst onReact={() => canReact && !it.reacted && react.mutate(it.id)} className="overflow-hidden rounded-[28px] border-[3px] border-line bg-black">
         <div className="aspect-[4/5] w-full">
           {isVideo ? (
             <AutoVideo src={it.proofUrl!} poster={it.posterUrl} label={`proof clip from ${handle(it.doer)}`} className="h-full w-full object-cover" />
@@ -93,7 +95,7 @@ function MediaPost({ it, s, actions, now }: { it: FeedItem; s: Session; actions:
         </div>
       </DoubleTapBurst>
       <div className="flex items-center gap-2 px-1">
-        <ReactionButton reacted={!!it.reacted} count={it.reactionCount ?? 0} disabled={!it.member} onToggle={() => react.mutate(it.id)} />
+        <ReactionButton reacted={!!it.reacted} count={it.reactionCount ?? 0} disabled={!canReact} onToggle={() => react.mutate(it.id)} />
         <ShareButton dareId={it.id} />
         <span className="ml-auto">
           <Money wei={it.amount} size="sm" align="right" />

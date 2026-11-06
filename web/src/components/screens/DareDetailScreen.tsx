@@ -82,6 +82,7 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
   const crew = groupName(data.group.id, data.group.name);
   const busyHere = actions.busy?.endsWith(`:${d.id}`) ?? false;
   const doerIsMe = d.doer?.wallet === data.viewer;
+  const canReact = data.member || data.group.isPublic; // same rule as POST /api/reactions
   const target = d.target ? handle(d.target) : "anyone in the crew";
   const payoutTokens = d.payout ? Math.round(Number(formatUnits(BigInt(d.payout), 18))) : null;
 
@@ -106,7 +107,7 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
 
       {!data.member && (
         <div className="raised flex flex-wrap items-center justify-between gap-3 !border-primary p-4" role="note">
-          <p className="text-[15px] font-extrabold">you&apos;re watching. join {crew} to dare, vote and react.</p>
+          <p className="text-[15px] font-extrabold">you&apos;re watching. join {crew} to dare and vote.</p>
           <PillButton size="sm" loading={actions.busy === `join:${data.group.id}`} onClick={() => void actions.joinGroup(data.group.id).then((ok) => ok && q.refetch())}>
             join the crew
           </PillButton>
@@ -116,7 +117,7 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
       {/* ---------------- VOTING / RESULT with proof: media first ---------------- */}
       {d.proofUrl && (kind === "VOTING" || settled) && (
         <div className="relative">
-          <DoubleTapBurst onReact={() => data.member && !d.reacted && react.mutate(d.id)} className="overflow-hidden rounded-[28px] border-[3px] border-line bg-black">
+          <DoubleTapBurst onReact={() => canReact && !d.reacted && react.mutate(d.id)} className="overflow-hidden rounded-[28px] border-[3px] border-line bg-black">
             {d.proofKind === "video" || d.proofMime?.startsWith("video/") ? (
               <AutoVideo src={d.proofUrl} poster={d.posterUrl} controls label={`proof clip from ${handle(d.doer)}`} className="block max-h-[70vh] w-full" />
             ) : (
@@ -252,7 +253,7 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
       {/* reactions (any state with proof) */}
       {d.proofUrl && (
         <div className="flex items-center gap-3">
-          <ReactionButton reacted={!!d.reacted} count={d.reactionCount ?? 0} disabled={!data.member} onToggle={() => react.mutate(d.id)} />
+          <ReactionButton reacted={!!d.reacted} count={d.reactionCount ?? 0} disabled={!canReact} onToggle={() => react.mutate(d.id)} />
           {!settled && <ShareButton dareId={d.id} />}
         </div>
       )}
