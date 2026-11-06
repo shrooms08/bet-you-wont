@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { useBalances, useInvitePreview, useSession, type Session } from "@/hooks/data";
 import { useActions, type Actions } from "@/hooks/useActions";
 import { useObjectUrl } from "@/hooks/useObjectUrl";
@@ -42,7 +42,6 @@ export function Onboarding({ inviteCode }: { inviteCode?: string }) {
   const router = useRouter();
   const mock = useMockMode();
   const invite = useInvitePreview(inviteCode ?? null);
-  const balances = useBalances(s);
 
   const steps: Step[] = inviteCode ? ["how", "signin", "you", "wallet"] : ["how", "signin", "you", "wallet", "crew", "first"];
   const requested = params.get("step") as Step | null;
@@ -58,7 +57,6 @@ export function Onboarding({ inviteCode }: { inviteCode?: string }) {
   const toFeed = (id: number) => router.replace(withMock(`/g/${id}`, mock));
 
   // --- routing guards (never in mock mode) ---------------------------------------------------
-  const autoJoinTried = useRef(false);
   const hasProfile = s.me.isSuccess && !!s.me.data.profile;
   const isMember = inviteGroupId !== null && !!s.me.data?.groups.some((g) => g.id === inviteGroupId);
   useEffect(() => {
@@ -77,19 +75,13 @@ export function Onboarding({ inviteCode }: { inviteCode?: string }) {
       if (step === "how" || step === "signin") router.replace("/home");
       return;
     }
-    // Invite link while onboarded: member -> feed; funded -> join now; else the wallet step explains gas.
+    // Invite link while onboarded: member -> feed; otherwise the wallet step, which has an explicit
+    // "join <crew>" button (and explains gas if the wallet is empty). Nothing signs on page load.
     if (inviteGroupId === null) return;
     if (isMember) return toFeed(inviteGroupId);
-    if (step === "how" || step === "signin" || step === "you") {
-      if (balances.eth !== undefined && balances.eth > BigInt(0) && !autoJoinTried.current) {
-        autoJoinTried.current = true;
-        void actions.joinGroup(inviteGroupId, inviteCode).then((ok) => (ok ? toFeed(inviteGroupId) : go("wallet", "", true)));
-      } else if (balances.eth !== undefined && balances.eth === BigInt(0)) {
-        go("wallet", "", true);
-      }
-    }
+    if (step === "how" || step === "signin" || step === "you") go("wallet", "", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- go/toFeed/actions are recreated each render; the inputs below are what matter
-  }, [s.mock, s.ready, s.authenticated, s.me.isSuccess, hasProfile, step, inviteCode, inviteGroupId, isMember, balances.eth]);
+  }, [s.mock, s.ready, s.authenticated, s.me.isSuccess, hasProfile, step, inviteCode, inviteGroupId, isMember]);
 
   if (inviteCode && invite.isError) {
     return (

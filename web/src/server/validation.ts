@@ -72,7 +72,15 @@ export const permitSchema = z.object({
 
 export const draftSchema = z.object({ groupId: idSchema, text: dareTextSchema });
 
-export const finalizeProofSchema = z.object({ dareId: idSchema, storagePath: z.string().max(200) });
+export const finalizeProofSchema = z.object({
+  dareId: idSchema,
+  storagePath: z.string().max(200),
+  sessionId: z.uuid(),
+  kind: z.enum(["photo", "video"]),
+  capturedAt: z.iso.datetime({ offset: true }),
+  durationMs: z.number().int().min(0).max(31_000).optional(),
+  posterPath: z.string().max(200).optional(),
+});
 
 /** First issue's message, for friendly 400s. */
 export function firstIssue(err: z.ZodError): string {

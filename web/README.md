@@ -9,11 +9,12 @@ A Next.js app on the RH Chain testnet (46630), using Privy for login, Supabase f
 | `/` | Routes you: logged out → `/start`; no @name → `/start?step=you`; otherwise → `/home` |
 | `/start?step=how\|signin\|you\|wallet\|crew\|first` | Onboarding O1–O6 |
 | `/i/<code>` | Invite link. Onboarding with the invite preview on every step. Joins after the wallet step (or right away if you're already set up and have gas), then opens the crew. |
-| `/home` | "Waiting on you" (accept, vote, proof, settle) and your crews |
+| `/home` | Instagram-style feed: a stories row for everything waiting on you, then proof posts (double-tap 🔥, autoplay clips, inline voting) and open-dare challenge posts, with infinite scroll |
+| `/d/<id>` | One dare in every state: open (aight bet), accepted (countdown dial and "post proof" camera), voting, result stamp, cancelled. Read-only for public-crew visitors; private crews return "this dare is private". |
 | `/crews` | Your crews; start a group; join with a code |
 | `/g/<id>` | A crew's dare board: inline aight bet / it counts / nah / settle / cancel / post proof |
 | `/wallet`, `/profile` | Address, balances and QR; your @name, photo and log out |
-| `/new` | Placeholder until the create screen ships in 3c-2b (links to `/dev` in development) |
+| `/new` | Create a dare: crew, text, who, bounty, time to do it, voting time. Prefill with `?group=&text=&amount=`. |
 | `/dev` | The 3c-1 test harness. **Development only**: a production build returns 404. |
 | `/dev/motion` | Motion gallery: cursor, burst, deck, stamp, double tap, toast states, count-up, tag flip, vote bar, nav pill, stagger and skeleton. **Development only.** |
 
@@ -59,6 +60,7 @@ Test wallets need testnet ETH for gas (gas is not sponsored). From `contracts/`:
 - `npm run verify-sync`: a read-only check that Supabase matches the chain. Run `set -a; source .env.local; set +a` first.
 - `npm run sync-abi`: regenerates `src/abi/*` from `../contracts`
 - `node scripts/motion-check.mjs video|perf`: records the O1 deck and the `/dev/motion` clips into `../design/screens/3c2m/` (needs `npm run dev`), or logs long tasks during the O1 transition at 4× CPU throttle (needs `next start -p 3001`).
+- `node scripts/capture-check.mjs [--upload] [--webm]`: with `npm run dev` running, uses a fake camera to take one photo and one 3-second clip in the real proof camera, then checks the files (type, magic bytes, size, the burned-in receipt, duration, poster). `--upload` also PUTs them to the proofs bucket and confirms a PNG is rejected. Run `set -a; source .env.local; set +a` first.
 - `node scripts/screenshots.mjs`: with `npm run dev` running, screenshots every screen at 390×844 @2x and 1440×900 into `../design/screens/3c2a/`. It also checks for horizontal scroll, the bottom nav covering content, and "robinhood" anywhere in the UI.
 
 ## API
@@ -77,7 +79,11 @@ All writes require `Authorization: Bearer <privy access token>`. A request acts 
 | POST | `/api/groups/register` | auth, 20/h | Takes `{txHash, name}` after `createGroup`. Names the group and issues an invite code. Creator only. |
 | POST | `/api/permit` | auth, 10/h | Takes `{groupId, inviteCode?}`. Signs a JoinPermit. Private groups need the invite code. |
 | POST | `/api/dares/draft` | auth, members, 30/h | Takes `{groupId, text}`. Stores the dare text and returns the `metaHash` to pass to `createDare`. |
-| POST | `/api/proofs/finalize` | auth, doer only, 20/h | Takes `{dareId, storagePath}`. Checks the upload and returns its sha256 `proofHash` to pass to `submitProof`. |
+| POST | `/api/proofs/session` | auth, doer only, 30/h | Takes `{dareId}`. Starts a 15-minute capture session `{sessionId, code}`; the code is burned into the capture. |
+| POST | `/api/proofs/finalize` | auth, doer only, 20/h | Takes `{dareId, storagePath, sessionId, kind, capturedAt, durationMs?, posterPath?}`. Requires a valid session. Accepts only a JPEG photo or an MP4/WebM clip (with a JPEG poster). Returns the sha256 `proofHash` for `submitProof`. |
+| GET | `/api/dares/<id>` | auth | Full dare, proof, reactions, voters and your flags. Read-only for public crews; 404 for private crews. |
+| GET | `/api/feed?cursor=` | auth | Your crews plus the public crew, newest activity first, 10 per page. Proof posts and open-dare challenge posts. |
+| POST | `/api/reactions` | auth, 120/h | Takes `{dareId}`. Toggles your 🔥; returns `{reacted, count}`. |
 | GET | `/api/groups/<id>/feed` | auth, members only | The group, its members, stats, and dares, with the buttons each one shows you. |
 | GET | `/api/home` | auth | "Waiting on you": dares to accept, vote on, prove, or settle, plus your groups. |
 | GET | `/api/groups/<id>/public` | public, 60/min/IP | Preview of a public group (name, member count, open and voting dares, 5 avatars). Private groups return 404. |

@@ -8,7 +8,9 @@
 //     above the nav)
 //   - no "robinhood" in visible text, title, meta tags, alt / aria-label / placeholder / title attributes
 //   - no visible text line is cut by the left or right viewport edge (text fully off-screen, like a
-//     carousel's next card, is fine; text straddling the edge is not)
+//     carousel's next card, is fine; text straddling the edge is not). Rows that scroll sideways on
+//     purpose (stories, chip rows) are marked data-hscroll and fade out at the edge; they're skipped.
+// The browser gets a fake camera/mic (--use-fake-device-for-media-stream) for the proof camera.
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 
@@ -37,10 +39,21 @@ const SCREENS = [
   { name: "14-crews-empty", path: "/crews?mock=empty", nav: true },
   { name: "15-group-feed", path: "/g/7?mock=1", nav: true },
   { name: "16-group-feed-empty", path: "/g/7?mock=empty", nav: true },
-  { name: "17-new-placeholder", path: `/new?group=7&text=${encodeURIComponent("compliment a stranger's outfit")}&mock=1`, nav: true },
+  { name: "17-create-dare", path: `/new?group=7&text=${encodeURIComponent("compliment a stranger's outfit")}&mock=1`, nav: true },
   { name: "18-wallet", path: "/wallet?mock=1", nav: true },
   { name: "19-profile", path: "/profile?mock=1", nav: true },
   { name: "20-tx-toast", path: "/g/7?mock=1", nav: true, clickText: "aight bet", afterClickMs: 400 },
+  // 3c-2b-1: dare detail in every state, the proof camera, and the review screen
+  { name: "21-dare-open", path: "/d/41?mock=1", nav: true },
+  { name: "22-dare-accepted-yours", path: "/d/38?mock=1", nav: true },
+  { name: "23-dare-accepted-other", path: "/d/44?mock=1", nav: true },
+  { name: "24-dare-voting", path: "/d/40?mock=1", nav: true },
+  { name: "25-dare-passed", path: "/d/36?mock=1", nav: true },
+  { name: "26-dare-failed", path: "/d/35?mock=1", nav: true },
+  { name: "27-dare-expired", path: "/d/34?mock=1", nav: true },
+  { name: "28-dare-cancelled", path: "/d/33?mock=1", nav: true },
+  { name: "29-camera", path: "/d/38?mock=1", sequence: ["post proof"], afterClickMs: 1500, waitFor: "take photo (hold to record video)" },
+  { name: "30-camera-review", path: "/d/38?mock=1", sequence: ["post proof", "take photo (hold to record video)"], afterClickMs: 2500 },
 ];
 
 const VIEWPORTS = [
@@ -49,12 +62,15 @@ const VIEWPORTS = [
   { tag: "laptop-1024", viewport: { width: 1024, height: 768 }, deviceScaleFactor: 1, only: ["01-o1-how-it-works", "08-invite-o1"] },
 ];
 
-const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
+const browser = await chromium.launch({
+  ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}),
+  args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+});
 const failures = [];
 const files = [];
 
 for (const vp of VIEWPORTS) {
-  const context = await browser.newContext({ viewport: vp.viewport, deviceScaleFactor: vp.deviceScaleFactor, isMobile: vp.isMobile, hasTouch: vp.hasTouch });
+  const context = await browser.newContext({ viewport: vp.viewport, deviceScaleFactor: vp.deviceScaleFactor, isMobile: vp.isMobile, hasTouch: vp.hasTouch, permissions: ["camera", "microphone"] });
   const page = await context.newPage();
   page.on("pageerror", (e) => failures.push(`${vp.tag} pageerror: ${e.message.split("\n")[0]}`));
   for (const sc of SCREENS) {
@@ -68,9 +84,18 @@ for (const vp of VIEWPORTS) {
         await page.waitForTimeout(sc.afterClickMs ?? 300);
       }
     }
+    for (const name of sc.sequence ?? []) {
+      await page.getByRole("button", { name, exact: true }).first().click();
+      await page.waitForTimeout(sc.afterClickMs ?? 300);
+    }
+    if (sc.waitFor) {
+      // e.g. the shutter becomes enabled once the camera stream is live
+      await page.waitForFunction((n) => [...document.querySelectorAll("button")].some((b) => b.getAttribute("aria-label") === n && !b.disabled), sc.waitFor, { timeout: 15000 });
+      await page.waitForTimeout(600);
+    }
     // Phones with the fixed bottom nav: a full-page capture would paint the nav mid-page, so take
     // the first screen and the scrolled-to-the-end screen (shows the nav clear of the last content).
-    const phoneNav = vp.isMobile && sc.nav && !sc.clickText;
+    const phoneNav = vp.isMobile && sc.nav && !sc.clickText && !sc.sequence;
     if (phoneNav) {
       for (const [suffix, y] of [["top", 0], ["end", 1e6]]) {
         await page.evaluate((top) => window.scrollTo(0, top), y);
@@ -82,7 +107,7 @@ for (const vp of VIEWPORTS) {
       await page.evaluate(() => window.scrollTo(0, 0));
     } else {
       const file = `${sc.name}--${vp.tag}.png`;
-      await page.screenshot({ path: out + file, fullPage: !sc.clickText });
+      await page.screenshot({ path: out + file, fullPage: !sc.clickText && !sc.sequence });
       files.push(file);
     }
 
@@ -112,7 +137,7 @@ for (const vp of VIEWPORTS) {
         for (let n = walker.nextNode(); n; n = walker.nextNode()) {
           if (!n.textContent.trim()) continue;
           const el = n.parentElement;
-          if (!el || el.closest("[aria-hidden=true], .sr-only")) continue;
+          if (!el || el.closest("[aria-hidden=true], .sr-only, [data-hscroll]")) continue;
           const st = getComputedStyle(el);
           if (st.visibility === "hidden" || st.display === "none") continue;
           const range = document.createRange();

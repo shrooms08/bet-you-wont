@@ -49,20 +49,25 @@ describe("collectTouched", () => {
   });
   it("records creation/settlement txs and amounts", () => {
     expect(t.groups.get(n(1))).toEqual({ createdTx: tx(100) });
-    expect(t.dares.get(n(1))).toEqual({ createdTx: tx(110), createdBlock: n(110), settledTx: tx(140), payout: n(95), burned: n(5) });
-    expect(t.dares.get(n(2))).toEqual({});
+    expect(t.dares.get(n(1))).toEqual({ createdTx: tx(110), createdBlock: n(110), settledTx: tx(140), settledBlock: n(140), payout: n(95), burned: n(5), lastBlock: n(140) });
+    expect(t.dares.get(n(2))).toEqual({ lastBlock: n(150) });
   });
   it("keeps member joins and votes in chain order, lowercased", () => {
     expect(t.members.map((m) => m.wallet)).toEqual([CREATOR.toLowerCase(), A.toLowerCase()]);
     expect(t.votes).toEqual([{ dareId: n(1), voter: B.toLowerCase(), pass: true, tx: tx(130), block: n(130) }]);
   });
-  it("asks for timestamps of join, create and vote blocks only", () => {
-    expect([...t.blocks].sort()).toEqual([n(100), n(101), n(110), n(130)]);
+  it("asks for timestamps of member joins and every dare event", () => {
+    expect([...t.blocks].sort()).toEqual([n(100), n(101), n(110), n(111), n(120), n(130), n(140), n(150)]);
+  });
+  it("tracks each dare's latest event block (its activity time) and settle block", () => {
+    expect(t.dares.get(n(1))?.lastBlock).toBe(n(140));
+    expect(t.dares.get(n(1))?.settledBlock).toBe(n(140));
+    expect(t.dares.get(n(2))?.lastBlock).toBe(n(150));
   });
 });
 
 describe("row mapping", () => {
-  const times = new Map([[n(110), n(1_793_950_000)], [n(130), n(1_793_950_600)], [n(101), n(1_793_949_000)]]);
+  const times = new Map([[n(110), n(1_793_950_000)], [n(130), n(1_793_950_600)], [n(101), n(1_793_949_000)], [n(140), n(1_793_951_200)]]);
   const onchain: OnchainDare = {
     creator: CREATOR,
     doDuration: 3600,
@@ -86,7 +91,14 @@ describe("row mapping", () => {
   };
 
   it("maps an onchain dare + events to a full row", () => {
-    const row = dareRow(n(1), onchain, { createdTx: tx(110), createdBlock: n(110), settledTx: tx(140), payout: n(95), burned: n(5) }, times, "sing", new Date("2026-11-06T12:00:00Z"));
+    const row = dareRow(
+      n(1),
+      onchain,
+      { createdTx: tx(110), createdBlock: n(110), settledTx: tx(140), settledBlock: n(140), lastBlock: n(140), payout: n(95), burned: n(5) },
+      times,
+      "sing",
+      new Date("2026-11-06T12:00:00Z"),
+    );
     expect(row).toEqual({
       id: "1",
       group_id: "1",
@@ -103,6 +115,7 @@ describe("row mapping", () => {
       proof_deadline: new Date(1_793_953_700_000).toISOString(),
       vote_end: new Date(1_793_951_100_000).toISOString(),
       proof_hash: onchain.proofHash,
+      proof_at: new Date(1_793_950_200_000).toISOString(),
       eligible: 2,
       pass_votes: 1,
       fail_votes: 0,
@@ -110,6 +123,8 @@ describe("row mapping", () => {
       created_tx: tx(110),
       created_at: new Date(1_793_950_000_000).toISOString(),
       settled_tx: tx(140),
+      settled_at: new Date(1_793_951_200_000).toISOString(),
+      activity_at: new Date(1_793_951_200_000).toISOString(),
       payout: "95",
       burned: "5",
       text: "sing",
@@ -117,10 +132,10 @@ describe("row mapping", () => {
   });
 
   it("omits fields this sync window does not know, so upserts never blank them", () => {
-    const open = { ...onchain, state: 1, outcome: 0, doer: zeroAddress, acceptedAt: n(0), proofDeadline: n(0), voteEnd: n(0), proofHash: zeroHash };
+    const open = { ...onchain, state: 1, outcome: 0, doer: zeroAddress, acceptedAt: n(0), proofDeadline: n(0), proofAt: n(0), voteEnd: n(0), proofHash: zeroHash };
     const row = dareRow(n(5), open, {}, times, undefined, new Date());
-    for (const key of ["created_tx", "created_at", "settled_tx", "payout", "burned", "text"]) expect(row).not.toHaveProperty(key);
-    expect(row).toMatchObject({ state: "Open", outcome: "None", doer_wallet: null, accepted_at: null, proof_deadline: null, vote_end: null, proof_hash: null });
+    for (const key of ["created_tx", "created_at", "settled_tx", "settled_at", "activity_at", "payout", "burned", "text"]) expect(row).not.toHaveProperty(key);
+    expect(row).toMatchObject({ state: "Open", outcome: "None", doer_wallet: null, accepted_at: null, proof_deadline: null, vote_end: null, proof_hash: null, proof_at: null });
   });
 
   it("maps groups, members and votes", () => {

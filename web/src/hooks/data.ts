@@ -1,12 +1,12 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useBalance, useReadContract } from "wagmi";
 import { activeChain, tokenAbi, tokenAddress } from "@/lib/contracts";
-import { MOCK_BALANCES, MOCK_INVITE, MOCK_PUBLIC_GROUP, MOCK_WALLET, mockFeed, mockHome, mockMe } from "@/lib/fixtures";
+import { MOCK_BALANCES, MOCK_INVITE, MOCK_PUBLIC_GROUP, MOCK_WALLET, mockDare, mockFeed, mockFeedPage, mockHome, mockMe } from "@/lib/fixtures";
 import { useMockMode } from "@/lib/mock";
-import type { Feed, Home, InvitePreview, Me, Price, PublicGroup } from "@/lib/types";
+import type { DareDetail, Feed, FeedPage, Home, InvitePreview, Me, Price, PublicGroup } from "@/lib/types";
 import { HttpError, useByw } from "./useByw";
 
 async function publicGet<T>(path: string): Promise<T> {
@@ -74,6 +74,62 @@ export function useFeed(s: Session, groupId: number | null) {
     queryFn: () => (s.mock ? Promise.resolve(mockFeed(groupId!, s.mock)) : s.byw.api<Feed>(`/api/groups/${groupId}/feed`)),
     enabled: groupId !== null && (!!s.mock || (s.authenticated && !!s.address)),
     retry: (count, err) => !(err instanceof HttpError && [403, 404].includes(err.status)) && count < 2,
+  });
+}
+
+/** GET /api/dares/<id> (members: full; public crews: read-only; private: 404). */
+export function useDare(s: Session, dareId: number | null) {
+  return useQuery({
+    queryKey: ["dare", dareId, s.mock || s.address],
+    queryFn: () => (s.mock ? Promise.resolve(mockDare(dareId!)) : s.byw.api<DareDetail>(`/api/dares/${dareId}`)),
+    enabled: dareId !== null && (!!s.mock || (s.authenticated && !!s.address)),
+    retry: (count, err) => !(err instanceof HttpError && [403, 404].includes(err.status)) && count < 2,
+  });
+}
+
+/** GET /api/feed, 10 per page, cursor pagination. */
+export function useFeedPosts(s: Session) {
+  return useInfiniteQuery({
+    queryKey: ["posts", s.mock || s.address],
+    queryFn: ({ pageParam }) =>
+      s.mock ? Promise.resolve(mockFeedPage(s.mock)) : s.byw.api<FeedPage>(`/api/feed${pageParam ? `?cursor=${encodeURIComponent(pageParam)}` : ""}`),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor,
+    enabled: !!s.mock || (s.authenticated && !!s.address),
+  });
+}
+
+/** 🔥 toggle with optimistic updates on the feed and the dare detail caches. */
+export function useReaction(s: Session) {
+  const qc = useQueryClient();
+  const patch = (dareId: number, fn: (reacted: boolean, count: number) => { reacted: boolean; count: number }) => {
+    qc.setQueriesData<InfiniteData<FeedPage>>({ queryKey: ["posts"] }, (data) =>
+      data
+        ? {
+            ...data,
+            pages: data.pages.map((p) => ({
+              ...p,
+              items: p.items.map((it) => {
+                if (it.id !== dareId) return it;
+                const next = fn(!!it.reacted, it.reactionCount ?? 0);
+                return { ...it, reacted: next.reacted, reactionCount: next.count };
+              }),
+            })),
+          }
+        : data,
+    );
+    qc.setQueriesData<DareDetail>({ queryKey: ["dare", dareId] }, (data) => {
+      if (!data) return data;
+      const next = fn(!!data.dare.reacted, data.dare.reactionCount ?? 0);
+      return { ...data, dare: { ...data.dare, reacted: next.reacted, reactionCount: next.count } };
+    });
+  };
+  return useMutation({
+    mutationFn: (dareId: number) =>
+      s.mock ? Promise.resolve(null) : s.byw.api<{ reacted: boolean; count: number }>("/api/reactions", { body: { dareId } }),
+    onMutate: (dareId) => patch(dareId, (r, c) => ({ reacted: !r, count: Math.max(0, c + (r ? -1 : 1)) })),
+    onError: (_e, dareId) => patch(dareId, (r, c) => ({ reacted: !r, count: Math.max(0, c + (r ? -1 : 1)) })), // roll back
+    onSuccess: (res, dareId) => res && patch(dareId, () => res),
   });
 }
 
@@ -146,6 +202,8 @@ export function useSyncLoop(enabled: boolean) {
         queryClient.invalidateQueries({ queryKey: ["home"] }),
         queryClient.invalidateQueries({ queryKey: ["feed"] }),
         queryClient.invalidateQueries({ queryKey: ["me"] }),
+        queryClient.invalidateQueries({ queryKey: ["dare"] }),
+        queryClient.invalidateQueries({ queryKey: ["posts"] }),
       ]);
     };
     const id = window.setInterval(() => void tick(), 20_000);

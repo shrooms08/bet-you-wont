@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { Actions } from "@/hooks/useActions";
 import { groupName, handle } from "@/lib/format";
 import { useMockMode, withMock } from "@/lib/mock";
@@ -10,7 +9,6 @@ import { Money } from "../ui/Money";
 import { PillButton, PillLink } from "../ui/PillButton";
 import { StatusTag, tagFor } from "../ui/StatusTag";
 import { DareText } from "./DareText";
-import { ProofSheet } from "./ProofSheet";
 
 export type WaitingKind = "accept" | "vote" | "proof" | "settle";
 export type WaitingItem = { kind: WaitingKind; dare: DareView };
@@ -51,7 +49,6 @@ function headline(item: WaitingItem, me: string): string {
 /** A "waiting on you" card on home: who/what, the dare, money, ONE clear action. */
 export function WaitingCard({ item, me, actions }: { item: WaitingItem; me: string; actions: Actions }) {
   const mock = useMockMode();
-  const [proofOpen, setProofOpen] = useState(false);
   const d = item.dare;
   const person = item.kind === "vote" ? d.doer : item.kind === "proof" ? d.creator : d.creator;
   const busy = actions.busy?.endsWith(`:${d.id}`) ?? false;
@@ -81,14 +78,13 @@ export function WaitingCard({ item, me, actions }: { item: WaitingItem; me: stri
           </PillButton>
         )}
         {item.kind === "vote" && <PillLink href={withMock(`/g/${d.groupId}#dare-${d.id}`, mock)}>vote</PillLink>}
-        {item.kind === "proof" && <PillButton onClick={() => setProofOpen(true)}>post proof</PillButton>}
+        {item.kind === "proof" && <PillLink href={withMock(`/d/${d.id}`, mock)}>post proof</PillLink>}
         {item.kind === "settle" && (
           <PillButton variant="secondary" loading={actions.busy === `settle:${d.id}`} disabled={busy} onClick={() => void actions.settle(d.id)}>
             settle
           </PillButton>
         )}
       </div>
-      {proofOpen && <ProofSheet dare={d} actions={actions} onClose={() => setProofOpen(false)} />}
     </article>
   );
 }

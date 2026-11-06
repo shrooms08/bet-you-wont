@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { parseEventLogs, type Hex } from "viem";
+import { maxUint256, parseEventLogs, type Address, type Hex } from "viem";
 import { useTxToast } from "@/components/tx/TxToast";
-import { activeChain, escrowAbi, escrowAddress } from "@/lib/contracts";
+import { activeChain, escrowAbi, escrowAddress, tokenAbi, tokenAddress } from "@/lib/contracts";
 import { describeError } from "@/lib/errors";
 import { resizeImage } from "@/lib/image";
 import type { TxState } from "@/lib/tx";
-import { uploadFile } from "@/lib/upload";
+import type { ProofSession } from "@/lib/types";
+import { uploadFile, uploadWithProgress } from "@/lib/upload";
 import type { Session } from "./data";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -83,22 +84,6 @@ export function useActions(s: Session) {
       });
     });
 
-  /** Upload file -> server checks + hashes it -> submitProof(dareId, sha256). */
-  const submitProof = (dareId: number, file: File) =>
-    track(`proof:${dareId}`, "posting proof", async (set) => {
-      const { account, pc, escrow } = ctx();
-      set({ status: "working", step: "uploading…", phase: "prepare" });
-      const storagePath = await uploadFile(byw, "proof", file, file.name);
-      set({ status: "working", step: "checking your file…", phase: "prepare" });
-      const { proofHash } = await byw.api<{ proofHash: Hex }>("/api/proofs/finalize", { body: { dareId, storagePath } });
-      const args = [BigInt(dareId), proofHash] as const;
-      return byw.runTx(set, {
-        simulate: () => pc.simulateContract({ account, address: escrow, abi: escrowAbi, functionName: "submitProof", args }),
-        send: () => byw.writeContractAsync({ address: escrow, abi: escrowAbi, functionName: "submitProof", args, chainId: activeChain.id }),
-        done: "proof is in. your crew votes now.",
-      });
-    });
-
   /** createGroup onchain, then name it + get an invite code (/api/groups/register). */
   const createGroup = (name: string, isPublic = false) =>
     track("createGroup", "starting your crew", async (set) => {
@@ -152,7 +137,92 @@ export function useActions(s: Session) {
       return true;
     }, true);
 
-  return { busy, accept, settle, cancel, vote, submitProof, createGroup, joinGroup, saveProfile };
+  /** draft -> approve $wif if the allowance is short -> createDare. Returns the new dare id. */
+  const createDare = (
+    p: { groupId: number; text: string; target: Address | null; wei: bigint; doDuration: number; voteWindow: number },
+    onStep?: (step: "draft" | "approve" | "send") => void,
+  ) =>
+    track(
+      "createDare",
+      "sending your dare",
+      async (set) => {
+        const { account, pc, escrow } = ctx();
+        onStep?.("draft");
+        set({ status: "working", step: "saving your dare…", phase: "prepare" });
+        const { metaHash } = await byw.api<{ metaHash: Hex }>("/api/dares/draft", { body: { groupId: p.groupId, text: p.text } });
+        const allowance = await pc.readContract({ address: tokenAddress, abi: tokenAbi, functionName: "allowance", args: [account, escrow] });
+        if (allowance < p.wei) {
+          onStep?.("approve");
+          const approved = await byw.runTx(set, {
+            simulate: () => pc.simulateContract({ account, address: tokenAddress, abi: tokenAbi, functionName: "approve", args: [escrow, maxUint256] }),
+            send: () => byw.writeContractAsync({ address: tokenAddress, abi: tokenAbi, functionName: "approve", args: [escrow, maxUint256], chainId: activeChain.id }),
+            done: "$wif approved (one time).",
+          });
+          if (!approved) return null;
+        }
+        onStep?.("send");
+        const args = [BigInt(p.groupId), p.target ?? ("0x0000000000000000000000000000000000000000" as Address), p.wei, p.doDuration, p.voteWindow, metaHash] as const;
+        const receipt = await byw.runTx(set, {
+          simulate: () => pc.simulateContract({ account, address: escrow, abi: escrowAbi, functionName: "createDare", args }),
+          send: () => byw.writeContractAsync({ address: escrow, abi: escrowAbi, functionName: "createDare", args, chainId: activeChain.id }),
+          done: "dare sent. bet they won't.",
+        });
+        if (!receipt) return null;
+        const [ev] = parseEventLogs({ abi: escrowAbi, eventName: "DareCreated", logs: receipt.logs });
+        return ev ? Number(ev.args.dareId) : null;
+      },
+      42,
+    );
+
+  /** A 15-minute capture session; its code is burned into the capture. Not a transaction. */
+  const startProofSession = async (dareId: number): Promise<ProofSession> => {
+    if (s.mock) {
+      const now = Date.now();
+      return { sessionId: "00000000-0000-4000-8000-000000000000", code: "K7M2PQ", issuedAt: new Date(now).toISOString(), expiresAt: new Date(now + 900_000).toISOString() };
+    }
+    return byw.api<ProofSession>("/api/proofs/session", { body: { dareId } });
+  };
+
+  /** Upload a live capture (+ poster for videos) -> finalize with the session -> submitProof onchain. */
+  const submitCapture = (
+    dareId: number,
+    c: { blob: Blob; mime: string; kind: "photo" | "video"; poster: Blob | null; durationMs: number | null; capturedAt: string },
+    session: ProofSession,
+    onProgress?: (f: number) => void,
+  ) =>
+    track(
+      `proof:${dareId}`,
+      "posting proof",
+      async (set) => {
+        const { account, pc, escrow } = ctx();
+        set({ status: "working", step: "uploading…", phase: "prepare" });
+        const storagePath = await uploadWithProgress(byw, "proof", c.blob, c.mime, (f) => onProgress?.(f * (c.poster ? 0.9 : 1)));
+        let posterPath: string | undefined;
+        if (c.poster) {
+          posterPath = await uploadWithProgress(byw, "proof", c.poster, "image/jpeg", (f) => onProgress?.(0.9 + f * 0.1));
+        }
+        set({ status: "working", step: "checking your proof…", phase: "prepare" });
+        const { proofHash } = await byw.api<{ proofHash: Hex }>("/api/proofs/finalize", {
+          body: {
+            dareId,
+            storagePath,
+            sessionId: session.sessionId,
+            kind: c.kind,
+            capturedAt: c.capturedAt,
+            ...(c.durationMs !== null ? { durationMs: Math.round(c.durationMs) } : {}),
+            ...(posterPath ? { posterPath } : {}),
+          },
+        });
+        const args = [BigInt(dareId), proofHash] as const;
+        return byw.runTx(set, {
+          simulate: () => pc.simulateContract({ account, address: escrow, abi: escrowAbi, functionName: "submitProof", args }),
+          send: () => byw.writeContractAsync({ address: escrow, abi: escrowAbi, functionName: "submitProof", args, chainId: activeChain.id }),
+          done: "proof is in. your crew votes now.",
+        });
+      },
+    );
+
+  return { busy, accept, settle, cancel, vote, createGroup, joinGroup, saveProfile, createDare, startProofSession, submitCapture };
 }
 
 export type Actions = ReturnType<typeof useActions>;

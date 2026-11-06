@@ -1,5 +1,5 @@
 // Fixture data for ?mock=1 (dev only). Shapes match the real API responses.
-import type { DareView, Feed, Home, InvitePreview, Me, MyGroup, PublicGroup, PublicProfile } from "./types";
+import type { DareDetail, DareView, Feed, FeedItem, FeedPage, Home, InvitePreview, Me, MyGroup, PublicGroup, PublicProfile } from "./types";
 
 const WEI = BigInt("1000000000000000000");
 const wif = (n: number) => (BigInt(n) * WEI).toString();
@@ -73,6 +73,9 @@ const D_VOTE = dare({
   passVotes: 1,
   proofUrl: "/onboarding/o1-proof.png",
   proofMime: "image/png",
+  proofKind: "photo",
+  capturedAt: agoMin(26),
+  reactionCount: 7,
   createdAt: agoMin(25),
   canVote: true,
 });
@@ -93,9 +96,22 @@ const D_ACCEPTED_MINE = dare({
   doer: ZEE,
   amount: wif(5000),
   state: "Accepted",
-  proofDeadline: inMin(60 * 20),
+  acceptedAt: agoMin(60 * 4 - 48),
+  proofDeadline: inMin(60 * 20 + 12),
   createdAt: agoMin(300),
   canSubmitProof: true,
+});
+const D_ACCEPTED_OTHER = dare({
+  id: 44,
+  text: "do 50 pushups in the town square",
+  creator: KEMI,
+  target: DAYO,
+  doer: DAYO,
+  amount: wif(8000),
+  state: "Accepted",
+  acceptedAt: agoMin(60 * 10),
+  proofDeadline: inMin(60 * 14),
+  createdAt: agoMin(60 * 11),
 });
 const D_SETTLE = dare({
   id: 37,
@@ -127,6 +143,9 @@ const D_PASSED = dare({
   outcome: "Passed",
   proofUrl: "/onboarding/o1-dared.png",
   proofMime: "image/png",
+  proofKind: "photo",
+  reactionCount: 23,
+  reacted: true,
   createdAt: agoMin(60 * 30),
 });
 const D_FAILED = dare({
@@ -223,3 +242,35 @@ export const MOCK_PUBLIC_GROUP: PublicGroup = {
 };
 
 export const MOCK_BALANCES = { eth: BigInt("4100000000000000"), wif: BigInt(42000) * WEI };
+
+const ALL_DARES = [D_MINE_OPEN, D_DARED_YOU, D_VOTE, D_OPEN_ANYONE, D_ACCEPTED_MINE, D_ACCEPTED_OTHER, D_SETTLE, D_PASSED, D_FAILED, D_EXPIRED, D_CANCELLED];
+
+/** Dare detail fixtures. Ids: 42/41/39 open, 38 accepted (yours), 44 accepted (someone else),
+ *  40 voting, 37 ready to settle, 36 passed, 35 failed, 34 expired, 33 cancelled. */
+export function mockDare(id: number): DareDetail {
+  const d = ALL_DARES.find((x) => x.id === id) ?? D_VOTE;
+  return {
+    viewer: MOCK_WALLET,
+    member: true,
+    group: { id: 7, name: "lagos crew", isPublic: false, inviteCode: "k7m2p9xq4h", memberCount: 5 },
+    dare: d,
+    voters:
+      d.state === "Voting" || d.outcome === "Passed" || d.outcome === "Failed"
+        ? [
+            { ...ADA, pass: true },
+            ...(d.passVotes > 1 ? [{ ...TOBI, pass: true }] : []),
+            ...(d.outcome === "Failed" ? [{ ...DAYO, pass: false }] : []),
+          ]
+        : [],
+  };
+}
+
+export function mockFeedPage(mode: "full" | "empty" | "external"): FeedPage {
+  if (mode === "empty") return { items: [], nextCursor: null };
+  const media = (d: DareView): FeedItem => ({ ...d, post: "media", member: true });
+  const challenge = (d: DareView): FeedItem => ({ ...d, post: "challenge", member: true });
+  return {
+    items: [media(D_VOTE), challenge(D_MINE_OPEN), media(D_SETTLE), challenge(D_DARED_YOU), media(D_PASSED), challenge({ ...D_OPEN_ANYONE, groupId: 1, groupName: null })],
+    nextCursor: null,
+  };
+}

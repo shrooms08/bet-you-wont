@@ -41,13 +41,16 @@ export type DareRow = {
   settled_tx: string | null;
   created_at: string | null;
   updated_at: string;
+  proof_at?: string | null;
+  settled_at?: string | null;
+  activity_at?: string | null;
 };
 
 /** Select list for dares. Big numerics are cast to text: PostgREST would send them as lossy JSON numbers. */
 export const DARE_COLUMNS =
   "id, group_id, creator_wallet, target_wallet, doer_wallet, amount::text, do_duration, vote_window, meta_hash, text, " +
   "state, outcome, accepted_at, proof_deadline, vote_end, proof_hash, eligible, pass_votes, fail_votes, payout::text, " +
-  "burned::text, created_tx, settled_tx, created_at, updated_at";
+  "burned::text, created_tx, settled_tx, created_at, updated_at, proof_at, settled_at, activity_at";
 
 export type GroupRow = {
   id: number;

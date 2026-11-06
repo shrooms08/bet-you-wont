@@ -60,7 +60,7 @@ function GroupMain({ s, groupId }: { s: Session; groupId: number }) {
     <div className="flex flex-col gap-6">
       <Headline line1={label} line2="the dare board." accent="violet" />
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <ul className="-mx-1 flex max-w-full gap-3 overflow-x-auto px-1 pb-1" aria-label={`${f.members.length} members`}>
+        <ul data-hscroll className="-mx-1 flex max-w-full gap-3 overflow-x-auto px-1 pb-1" aria-label={`${f.members.length} members`}>
           {f.members.map((m) => (
             <li key={m.wallet} className="shrink-0">
               <AvatarChip person={m} />

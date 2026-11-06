@@ -139,8 +139,11 @@ export function FxLayer() {
       if (!raf) raf = requestAnimationFrame(frame);
     };
 
+    const NO_BURST = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [data-no-burst]';
     const onDown = (e: PointerEvent) => {
       if (reducedRef.current || !e.isPrimary) return;
+      // no bursts while typing or inside the camera sheet
+      if ((e.target as Element | null)?.closest?.(NO_BURST)) return;
       spawnBurst(pool, e.clientX, e.clientY, performance.now());
       kick();
     };

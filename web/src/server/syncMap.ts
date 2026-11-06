@@ -41,10 +41,13 @@ export type VoteEvent = { dareId: bigint; voter: string; pass: boolean; tx: Hex;
 
 export type Touched = {
   groups: Map<bigint, { createdTx?: Hex }>;
-  dares: Map<bigint, { createdTx?: Hex; createdBlock?: bigint; settledTx?: Hex; payout?: bigint; burned?: bigint }>;
+  dares: Map<
+    bigint,
+    { createdTx?: Hex; createdBlock?: bigint; settledTx?: Hex; settledBlock?: bigint; payout?: bigint; burned?: bigint; lastBlock?: bigint }
+  >;
   members: MemberEvent[];
   votes: VoteEvent[];
-  /** Blocks whose timestamps we need (member joins, dare creation, votes). */
+  /** Blocks whose timestamps we need (member joins and every dare event). */
   blocks: Set<bigint>;
 };
 
@@ -57,9 +60,15 @@ export function collectTouched(logs: EscrowLog[]): Touched {
     if (!t.groups.has(id)) t.groups.set(id, {});
     return t.groups.get(id)!;
   };
-  const dare = (id: bigint) => {
+  const dare = (id: bigint, block?: bigint) => {
     if (!t.dares.has(id)) t.dares.set(id, {});
-    return t.dares.get(id)!;
+    const d = t.dares.get(id)!;
+    // latest event block = the dare's activity time (feed ordering)
+    if (block !== undefined) {
+      if (d.lastBlock === undefined || block > d.lastBlock) d.lastBlock = block;
+      t.blocks.add(block);
+    }
+    return d;
   };
   const ordered = [...logs].sort((a, b) =>
     a.blockNumber === b.blockNumber ? a.logIndex - b.logIndex : a.blockNumber < b.blockNumber ? -1 : 1,
@@ -76,7 +85,7 @@ export function collectTouched(logs: EscrowLog[]): Touched {
         t.blocks.add(log.blockNumber);
         break;
       case "DareCreated": {
-        const d = dare(a.dareId as bigint);
+        const d = dare(a.dareId as bigint, log.blockNumber);
         d.createdTx = log.transactionHash;
         d.createdBlock = log.blockNumber;
         group(a.groupId as bigint);
@@ -86,16 +95,17 @@ export function collectTouched(logs: EscrowLog[]): Touched {
       case "DareCancelled":
       case "DareAccepted":
       case "ProofSubmitted":
-        dare(a.dareId as bigint);
+        dare(a.dareId as bigint, log.blockNumber);
         break;
       case "Voted":
-        dare(a.dareId as bigint);
+        dare(a.dareId as bigint, log.blockNumber);
         t.votes.push({ dareId: a.dareId as bigint, voter: lower(a.voter), pass: a.pass as boolean, tx: log.transactionHash, block: log.blockNumber });
         t.blocks.add(log.blockNumber);
         break;
       case "DareSettled": {
-        const d = dare(a.dareId as bigint);
+        const d = dare(a.dareId as bigint, log.blockNumber);
         d.settledTx = log.transactionHash;
+        d.settledBlock = log.blockNumber;
         d.payout = a.payout as bigint;
         d.burned = a.burned as bigint;
         break;
@@ -144,6 +154,8 @@ export type DareExtra = {
   createdTx?: Hex;
   createdBlock?: bigint;
   settledTx?: Hex;
+  settledBlock?: bigint;
+  lastBlock?: bigint;
   payout?: bigint;
   burned?: bigint;
 };
@@ -161,6 +173,8 @@ export function dareRow(
   now: Date,
 ) {
   const createdTs = extra.createdBlock === undefined ? undefined : blockTime.get(extra.createdBlock);
+  const settledTs = extra.settledBlock === undefined ? undefined : blockTime.get(extra.settledBlock);
+  const activityTs = extra.lastBlock === undefined ? undefined : blockTime.get(extra.lastBlock);
   return {
     id: id.toString(),
     group_id: d.groupId.toString(),
@@ -177,6 +191,7 @@ export function dareRow(
     proof_deadline: isoOrNull(d.proofDeadline),
     vote_end: isoOrNull(d.voteEnd),
     proof_hash: d.proofHash === zeroHash ? null : d.proofHash,
+    proof_at: isoOrNull(d.proofAt),
     eligible: d.eligible,
     pass_votes: d.passVotes,
     fail_votes: d.failVotes,
@@ -184,6 +199,8 @@ export function dareRow(
     ...(extra.createdTx ? { created_tx: extra.createdTx } : {}),
     ...(createdTs !== undefined ? { created_at: iso(createdTs) } : {}),
     ...(extra.settledTx ? { settled_tx: extra.settledTx } : {}),
+    ...(settledTs !== undefined ? { settled_at: iso(settledTs) } : {}),
+    ...(activityTs !== undefined ? { activity_at: iso(activityTs) } : {}),
     ...(extra.payout !== undefined ? { payout: extra.payout.toString() } : {}),
     ...(extra.burned !== undefined ? { burned: extra.burned.toString() } : {}),
     ...(text !== undefined ? { text } : {}),

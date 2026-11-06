@@ -209,7 +209,11 @@ export function DareCard({ byw, dare }: { byw: Byw; dare: DareView }) {
       setTx({ status: "working", step: "Uploading proof…" });
       const storagePath = await uploadFile(byw, "proof", file);
       setTx({ status: "working", step: "Hashing proof on the server…" });
-      const { proofHash } = await byw.api<{ proofHash: Hex }>("/api/proofs/finalize", { body: { dareId: dare.id, storagePath } });
+      // 3c-2b-1: finalize needs a capture session; the harness sends a JPEG as a "photo"
+      const ses = await byw.api<{ sessionId: string }>("/api/proofs/session", { body: { dareId: dare.id } });
+      const { proofHash } = await byw.api<{ proofHash: Hex }>("/api/proofs/finalize", {
+        body: { dareId: dare.id, storagePath, sessionId: ses.sessionId, kind: "photo", capturedAt: new Date().toISOString() },
+      });
       const args = [id, proofHash] as const;
       await byw.runTx(setTx, {
         simulate: () => publicClient.simulateContract({ account, address: escrowAddress(), abi: escrowAbi, functionName: "submitProof", args }),
@@ -272,7 +276,7 @@ export function DareCard({ byw, dare }: { byw: Byw; dare: DareView }) {
           <>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/heic,video/mp4,video/quicktime,video/webm"
+              accept="image/jpeg"
               className="text-sm"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />

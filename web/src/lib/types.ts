@@ -43,6 +43,16 @@ export type DareView = {
   createdTx: string | null;
   settledTx: string | null;
   hasVoted: boolean;
+  // 3c-2b-1
+  proofKind?: "photo" | "video" | null;
+  posterUrl?: string | null;
+  capturedAt?: string | null;
+  durationMs?: number | null;
+  reactionCount?: number;
+  reacted?: boolean;
+  proofAt?: string | null;
+  settledAt?: string | null;
+  activityAt?: string | null;
   canAccept: boolean;
   canSubmitProof: boolean;
   canVote: boolean;
@@ -79,3 +89,19 @@ export type PublicGroup = {
 };
 
 export type Price = { usd: number | null; source: string | null; fetchedAt?: string };
+
+/** GET /api/feed item: a media post (proof) or a challenge post (open dare). */
+export type FeedItem = DareView & { post: "media" | "challenge"; member: boolean };
+export type FeedPage = { items: FeedItem[]; nextCursor: string | null };
+
+/** GET /api/dares/<id> */
+export type DareDetail = {
+  viewer: string;
+  member: boolean;
+  group: { id: number; name: string | null; isPublic: boolean; inviteCode: string | null; memberCount: number };
+  dare: DareView;
+  voters: Array<PublicProfile & { pass: boolean }>;
+};
+
+/** POST /api/proofs/session */
+export type ProofSession = { sessionId: string; code: string; issuedAt: string; expiresAt: string };

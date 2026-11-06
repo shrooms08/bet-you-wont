@@ -100,13 +100,18 @@ describe("moderation blocklist", () => {
 describe("upload requests", () => {
   it("allows the bucket's mime types and sizes", () => {
     expect(ok(uploadRequestSchema, { kind: "avatar", mime: "image/png", size: 5 * 1024 * 1024 })).toBe(true);
-    expect(ok(uploadRequestSchema, { kind: "proof", mime: "video/quicktime", size: 50 * 1024 * 1024 })).toBe(true);
+    expect(ok(uploadRequestSchema, { kind: "proof", mime: "video/webm", size: 50 * 1024 * 1024 })).toBe(true);
+    expect(ok(uploadRequestSchema, { kind: "proof", mime: "image/jpeg", size: 10 })).toBe(true);
   });
   it("rejects wrong mime, oversize, zero size, unknown kind", () => {
     expect(ok(uploadRequestSchema, { kind: "avatar", mime: "video/mp4", size: 10 })).toBe(false);
     expect(ok(uploadRequestSchema, { kind: "avatar", mime: "image/heic", size: 10 })).toBe(false);
     expect(ok(uploadRequestSchema, { kind: "avatar", mime: "image/png", size: 5 * 1024 * 1024 + 1 })).toBe(false);
     expect(ok(uploadRequestSchema, { kind: "proof", mime: "image/gif", size: 10 })).toBe(false);
+    // proofs are live captures only now: no gallery formats
+    for (const mime of ["image/png", "image/webp", "image/heic", "video/quicktime"]) {
+      expect(ok(uploadRequestSchema, { kind: "proof", mime, size: 10 }), mime).toBe(false);
+    }
     expect(ok(uploadRequestSchema, { kind: "proof", mime: "video/mp4", size: 0 })).toBe(false);
     expect(ok(uploadRequestSchema, { kind: "banner", mime: "image/png", size: 10 })).toBe(false);
   });
@@ -116,9 +121,9 @@ describe("storage paths", () => {
   const wallet = "0x3B031e43b2710D5D049e465A2d5675C958b659Ce";
   const uuid = "123e4567-e89b-42d3-a456-426614174000";
   it("round-trips kind/<wallet>/<uuid>.<ext> with a lowercased wallet", () => {
-    const path = storagePathFor("proof", wallet, uuid, "video/quicktime");
-    expect(path).toBe(`proof/${wallet.toLowerCase()}/${uuid}.mov`);
-    expect(parseStoragePath(path)).toEqual({ kind: "proof", wallet: wallet.toLowerCase(), ext: "mov" });
+    const path = storagePathFor("proof", wallet, uuid, "video/webm");
+    expect(path).toBe(`proof/${wallet.toLowerCase()}/${uuid}.webm`);
+    expect(parseStoragePath(path)).toEqual({ kind: "proof", wallet: wallet.toLowerCase(), ext: "webm" });
   });
   it("rejects anything we did not issue", () => {
     for (const p of [
@@ -159,8 +164,12 @@ describe("other route bodies", () => {
     expect(ok(permitSchema, { groupId: 2, inviteCode: "abc0efghjk" })).toBe(false); // 0 not in alphabet
     expect(ok(inviteCodeSchema, "abcdefghj")).toBe(false);
   });
-  it("finalize: needs a dare id and a path", () => {
-    expect(ok(finalizeProofSchema, { dareId: 1 })).toBe(false);
-    expect(ok(finalizeProofSchema, { dareId: 1, storagePath: "proof/x" })).toBe(true);
+  it("finalize: needs dare, path, a capture session id, kind and capture time", () => {
+    const good = { dareId: 1, storagePath: "proof/x", sessionId: "8a1d6b0e-0000-4000-8000-000000000001", kind: "video", capturedAt: "2026-11-06T12:00:00.000Z", durationMs: 3000, posterPath: "proof/y" };
+    expect(ok(finalizeProofSchema, good)).toBe(true);
+    expect(ok(finalizeProofSchema, { dareId: 1, storagePath: "proof/x" })).toBe(false); // no session
+    expect(ok(finalizeProofSchema, { ...good, sessionId: "nope" })).toBe(false);
+    expect(ok(finalizeProofSchema, { ...good, kind: "gallery" })).toBe(false);
+    expect(ok(finalizeProofSchema, { ...good, durationMs: 45_000 })).toBe(false); // over 30 s
   });
 });

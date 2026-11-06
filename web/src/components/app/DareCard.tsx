@@ -1,17 +1,16 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useState } from "react";
 import type { Actions } from "@/hooks/useActions";
 import { formatWif, handle, timeAgo, timeLeft } from "@/lib/format";
+import { useMockMode, withMock } from "@/lib/mock";
 import { springs } from "@/lib/motion";
 import type { DareView } from "@/lib/types";
 import { AvatarChip } from "../ui/Avatar";
 import { Money, WIF_LABEL } from "../ui/Money";
-import { PillButton } from "../ui/PillButton";
+import { PillButton, PillLink } from "../ui/PillButton";
 import { StatusTag, tagFor } from "../ui/StatusTag";
 import { DareText } from "./DareText";
-import { ProofSheet } from "./ProofSheet";
 
 function durationLabel(seconds: number) {
   if (seconds >= 86400 && seconds % 86400 === 0) return `${seconds / 86400}d`;
@@ -91,7 +90,7 @@ export function VoteBar({ pass, fail, eligible }: { pass: number; fail: number; 
 
 /** A dare on the group feed: media, text, who dared who, money, tag, time, inline actions. */
 export function DareCard({ d, actions, now }: { d: DareView; actions: Actions; now: number }) {
-  const [proofOpen, setProofOpen] = useState(false);
+  const mock = useMockMode();
   const busy = (key: string) => actions.busy === `${key}:${d.id}`;
   const anyBusy = actions.busy?.endsWith(`:${d.id}`) ?? false;
   const kind = tagFor(d.state, d.outcome);
@@ -128,9 +127,9 @@ export function DareCard({ d, actions, now }: { d: DareView; actions: Actions; n
             </PillButton>
           )}
           {d.canSubmitProof && (
-            <PillButton full onClick={() => setProofOpen(true)} disabled={anyBusy}>
+            <PillLink full href={withMock(`/d/${d.id}`, mock)}>
               post proof
-            </PillButton>
+            </PillLink>
           )}
           {d.canVote && (
             <div className="grid w-full grid-cols-2 gap-3">
@@ -155,7 +154,6 @@ export function DareCard({ d, actions, now }: { d: DareView; actions: Actions; n
         </div>
       )}
       {d.hasVoted && kind === "VOTING" && <p className="mt-3 text-[15px] font-extrabold text-accent-2">you voted. waiting on the rest.</p>}
-      {proofOpen && <ProofSheet dare={d} actions={actions} onClose={() => setProofOpen(false)} />}
     </article>
   );
 }

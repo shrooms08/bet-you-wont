@@ -1,90 +1,96 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useFeed, useHome, type Session } from "@/hooks/data";
+import { useBalances, useHome, type Session } from "@/hooks/data";
 import { useActions } from "@/hooks/useActions";
-import { groupName } from "@/lib/format";
+import { useNow } from "@/hooks/useNow";
+import { formatWif } from "@/lib/format";
 import { useMockMode, withMock } from "@/lib/mock";
+import { storiesFrom } from "@/lib/stories";
 import { AppShell } from "../app/AppShell";
-import { StaggerItem, StaggerList } from "../motion/Stagger";
-import { CrewCard, JoinPublicCard, MembersPanel, StartGroupCard, StatsPanel } from "../app/Crews";
+import { CrewCard, JoinPublicCard, StartGroupCard } from "../app/Crews";
 import { WaitingCard, waitingItems } from "../app/WaitingCard";
-import { Headline } from "../ui/Headline";
+import { FeedList, StoriesRow } from "../feed/FeedPosts";
 import { PillLink } from "../ui/PillButton";
 import { SectionLabel } from "../ui/RaisedCard";
-import { EmptyState, Skeleton } from "../ui/States";
+import { EmptyState } from "../ui/States";
+
+function TopBar({ s }: { s: Session }) {
+  const mock = useMockMode();
+  const balances = useBalances(s);
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <Link href={withMock("/home", mock)} className="font-display text-[30px] uppercase leading-none tracking-[-0.03em] text-accent-2 desk:invisible" aria-label="bet you won't home">
+        BYW
+      </Link>
+      <Link href={withMock("/wallet", mock)} className="press flex min-h-11 items-center gap-1.5 rounded-full border-[3px] border-line bg-surface px-4 text-[15px] font-extrabold" aria-label="your wallet balance">
+        <span className="text-money">{balances.wif !== undefined ? formatWif(balances.wif) : "…"}</span> $wif
+      </Link>
+    </div>
+  );
+}
 
 function HomeMain({ s }: { s: Session }) {
   const home = useHome(s);
   const actions = useActions(s);
   const router = useRouter();
   const mock = useMockMode();
-  const items = waitingItems(home.data?.waitingOnYou);
+  const now = useNow();
+  const stories = storiesFrom(home.data?.waitingOnYou);
   const groups = home.data?.groups ?? [];
-  const me = (s.address ?? "").toLowerCase();
   const openGroup = (id: number) => router.push(withMock(`/g/${id}`, mock));
 
   return (
-    <div className="flex flex-col gap-6">
-      <Headline line1="what's the" line2="dare today?" accent="lime" />
-      {(home.isLoading || items.length > 0 || groups.length > 0) && (
-      <section className="flex flex-col gap-4" aria-label="waiting on you">
-        <SectionLabel count={items.length}>waiting on you</SectionLabel>
-        {home.isLoading && <Skeleton count={2} />}
-        {home.error && <EmptyState title="couldn't load your dares" body="check your connection. we'll keep trying." />}
-        {home.isSuccess && items.length === 0 && groups.length > 0 && (
-          <EmptyState title="nothing waiting on you" body="suspicious. go dare someone.">
-            <PillLink href={withMock("/new", mock)}>new dare</PillLink>
-          </EmptyState>
-        )}
-        <StaggerList as="div" className="flex flex-col gap-4">
-          {items.map((item) => (
-            <StaggerItem as="div" key={item.dare.id}>
-              <WaitingCard item={item} me={me} actions={actions} />
-            </StaggerItem>
-          ))}
-        </StaggerList>
-      </section>
-      )}
-
-      <section className="flex flex-col gap-4" aria-label="your crews">
-        <SectionLabel>your crews</SectionLabel>
-        {home.isSuccess && groups.length === 0 ? (
-          <>
-            <EmptyState title="no crew yet" body="dares need friends. start your own crew or jump into the public one." />
-            <JoinPublicCard s={s} actions={actions} onJoined={openGroup} />
-            <StartGroupCard actions={actions} onCreated={openGroup} />
-          </>
-        ) : (
-          <StaggerList as="div" className="flex flex-col gap-4">
-            {groups.map((g) => (
-              <StaggerItem as="div" key={g.id}>
-                <CrewCard g={g} />
-              </StaggerItem>
-            ))}
-          </StaggerList>
-        )}
-      </section>
+    <div className="mx-auto flex w-full max-w-[600px] flex-col gap-6">
+      <TopBar s={s} />
+      <StoriesRow stories={stories} />
+      <FeedList
+        s={s}
+        actions={actions}
+        now={now}
+        empty={
+          home.isSuccess && groups.length === 0 ? (
+            <div className="flex flex-col gap-5">
+              <EmptyState title="no crew yet" body="dares need friends. start your own crew or jump into the public one." />
+              <JoinPublicCard s={s} actions={actions} onJoined={openGroup} />
+              <StartGroupCard actions={actions} onCreated={openGroup} />
+            </div>
+          ) : (
+            <EmptyState title="nothing here yet" body="suspicious. go dare someone.">
+              <PillLink href={withMock("/new", mock)}>new dare</PillLink>
+            </EmptyState>
+          )
+        }
+      />
     </div>
   );
 }
 
-/** Desktop right column on home: the busiest crew's members and live stats. */
+/** Desktop right column: "waiting on you" list and your crews. */
 function HomeRight({ s }: { s: Session }) {
   const home = useHome(s);
-  const top = [...(home.data?.groups ?? [])].sort((a, b) => b.liveDareCount - a.liveDareCount)[0];
-  const feed = useFeed(s, top?.id ?? null);
-  if (!top || !feed.data) return null;
-  const label = groupName(top.id, feed.data.group.name);
+  const actions = useActions(s);
+  const items = waitingItems(home.data?.waitingOnYou);
+  const me = (s.address ?? "").toLowerCase();
   return (
     <>
-      <MembersPanel
-        title={`${label} · ${feed.data.members.length}`}
-        members={feed.data.members}
-        inviteCode={feed.data.group.inviteCode}
-        groupLabel={label}
-      />
-      <StatsPanel stats={feed.data.stats} />
+      {items.length > 0 && (
+        <section className="flex flex-col gap-4" aria-label="waiting on you">
+          <SectionLabel count={items.length}>waiting on you</SectionLabel>
+          {items.slice(0, 3).map((item) => (
+            <WaitingCard key={item.dare.id} item={item} me={me} actions={actions} />
+          ))}
+        </section>
+      )}
+      {(home.data?.groups.length ?? 0) > 0 && (
+        <section className="flex flex-col gap-3" aria-label="your crews">
+          <SectionLabel>your crews</SectionLabel>
+          {home.data!.groups.map((g) => (
+            <CrewCard key={g.id} g={g} />
+          ))}
+        </section>
+      )}
     </>
   );
 }

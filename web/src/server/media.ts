@@ -10,16 +10,13 @@ export const UPLOAD_RULES: Record<UploadKind, BucketRule> = {
     maxBytes: 5 * 1024 * 1024,
     mimes: { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" },
   },
+  // Proofs are live in-app captures only: JPEG photos, MP4 (Safari) or WebM videos.
   proof: {
     bucket: "proofs",
     maxBytes: 50 * 1024 * 1024,
     mimes: {
       "image/jpeg": "jpg",
-      "image/png": "png",
-      "image/webp": "webp",
-      "image/heic": "heic",
       "video/mp4": "mp4",
-      "video/quicktime": "mov",
       "video/webm": "webm",
     },
   },
