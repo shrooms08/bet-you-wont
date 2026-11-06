@@ -7,6 +7,8 @@
 //   - the fixed bottom nav never covers content (scrolled to the end, main's last element ends
 //     above the nav)
 //   - no "robinhood" in visible text, title, meta tags, alt / aria-label / placeholder / title attributes
+//   - no visible text line is cut by the left or right viewport edge (text fully off-screen, like a
+//     carousel's next card, is fine; text straddling the edge is not)
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 
@@ -17,6 +19,8 @@ mkdirSync(out, { recursive: true });
 const SCREENS = [
   // logged out (no mock): real onboarding entry
   { name: "01-o1-how-it-works", path: "/start" },
+  { name: "01b-o1-card-2", path: "/start", clickText: "next", clicks: 1, afterClickMs: 900, mobileOnly: true },
+  { name: "01c-o1-card-3", path: "/start", clickText: "next", clicks: 2, afterClickMs: 900, mobileOnly: true },
   { name: "02-o2-sign-in", path: "/start?step=signin" },
   // logged in via ?mock (dev-only fixtures)
   { name: "03-o3-you", path: "/start?step=you&mock=1" },
@@ -42,6 +46,7 @@ const SCREENS = [
 const VIEWPORTS = [
   { tag: "mobile-390", viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   { tag: "desktop-1440", viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 },
+  { tag: "laptop-1024", viewport: { width: 1024, height: 768 }, deviceScaleFactor: 1, only: ["01-o1-how-it-works", "08-invite-o1"] },
 ];
 
 const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
@@ -53,11 +58,15 @@ for (const vp of VIEWPORTS) {
   const page = await context.newPage();
   page.on("pageerror", (e) => failures.push(`${vp.tag} pageerror: ${e.message.split("\n")[0]}`));
   for (const sc of SCREENS) {
+    if (vp.only && !vp.only.includes(sc.name)) continue;
+    if (sc.mobileOnly && !vp.isMobile) continue;
     await page.goto(base + sc.path, { waitUntil: "networkidle" });
     await page.waitForTimeout(900);
     if (sc.clickText) {
-      await page.getByRole("button", { name: sc.clickText }).first().click();
-      await page.waitForTimeout(sc.afterClickMs ?? 300);
+      for (let i = 0; i < (sc.clicks ?? 1); i++) {
+        await page.getByRole("button", { name: sc.clickText }).first().click();
+        await page.waitForTimeout(sc.afterClickMs ?? 300);
+      }
     }
     // Phones with the fixed bottom nav: a full-page capture would paint the nav mid-page, so take
     // the first screen and the scrolled-to-the-end screen (shows the nav clear of the last content).
@@ -96,7 +105,24 @@ for (const vp of VIEWPORTS) {
           const navTop = navEl.querySelector("ul")?.getBoundingClientRect().top ?? navEl.getBoundingClientRect().top;
           covered = bottom > navTop + 1;
         }
-        return { hScroll, brand, covered, width: doc.scrollWidth };
+        // Text cut by the viewport's left/right edge.
+        const cut = [];
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        const W = window.innerWidth;
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if (!n.textContent.trim()) continue;
+          const el = n.parentElement;
+          if (!el || el.closest("[aria-hidden=true], .sr-only")) continue;
+          const st = getComputedStyle(el);
+          if (st.visibility === "hidden" || st.display === "none") continue;
+          const range = document.createRange();
+          range.selectNodeContents(n);
+          for (const r of range.getClientRects()) {
+            if (r.width < 1 || r.height < 1) continue;
+            if ((r.left < -1 && r.right > 1) || (r.left < W - 1 && r.right > W + 1)) cut.push(n.textContent.trim().slice(0, 30));
+          }
+        }
+        return { hScroll, brand, covered, cut: [...new Set(cut)], width: doc.scrollWidth };
       },
       { nav: !!sc.nav },
     );
@@ -104,6 +130,7 @@ for (const vp of VIEWPORTS) {
     if (check.hScroll) problems.push(`horizontal scroll (${check.width}px)`);
     if (check.covered) problems.push("bottom nav covers content");
     if (check.brand) problems.push('"robinhood" found');
+    if (check.cut.length) problems.push(`text cut at viewport edge: ${check.cut.map((t) => JSON.stringify(t)).join(", ")}`);
     console.log(`${problems.length ? "FAIL" : "ok  "}  ${vp.tag.padEnd(12)} ${sc.name}${problems.length ? `  -> ${problems.join(", ")}` : ""}`);
     if (problems.length) failures.push(`${vp.tag} ${sc.name}: ${problems.join(", ")}`);
   }

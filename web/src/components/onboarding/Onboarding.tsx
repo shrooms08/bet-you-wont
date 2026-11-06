@@ -96,24 +96,37 @@ export function Onboarding({ inviteCode }: { inviteCode?: string }) {
     );
   }
 
-  const header = (
-    <>
-      <div className="flex items-center justify-between gap-3">
-        <Progress steps={steps} current={step} />
-        {step === "how" && (
+  // Step pills start at O2: O1 is the intro and has its own carousel dots on mobile.
+  const progressSteps = steps.filter((st) => st !== "how");
+  const inviteNote = invite.data && <InviteNote invite={invite.data} />;
+
+  if (step === "how") {
+    return (
+      <main className="mx-auto flex min-h-dvh w-full max-w-[1100px] flex-col px-5 pb-[calc(32px+env(safe-area-inset-bottom))] pt-[calc(20px+env(safe-area-inset-top))] tab:px-8 tab:pt-8">
+        <div className="flex justify-end">
           <PillButton variant="ghost" size="sm" onClick={() => go("signin")}>
             skip
           </PillButton>
-        )}
-      </div>
-      {invite.data && <InviteNote invite={invite.data} />}
+        </div>
+        {/* my-auto centers the block vertically when the screen is taller than the content */}
+        <div className="my-auto flex flex-col gap-6 py-4">
+          {inviteNote && <div className="tab:mx-auto tab:w-full tab:max-w-[520px]">{inviteNote}</div>}
+          <StepHow onDone={() => go("signin")} />
+        </div>
+      </main>
+    );
+  }
+
+  const header = (
+    <>
+      <Progress steps={progressSteps} current={step} />
+      {inviteNote}
     </>
   );
 
   return (
     <Frame>
       {header}
-      {step === "how" && <StepHow onDone={() => go("signin")} />}
       {step === "signin" && <StepSignIn s={s} onMock={() => go("you")} />}
       {step === "you" && (
         <StepYou s={s} actions={actions} onDone={() => (params.get("from") === "profile" ? router.push(withMock("/profile", mock)) : go("wallet"))} />
@@ -182,55 +195,76 @@ const HOW = [
   { src: "/onboarding/o1-paid.png", alt: "two people dressed as ghosts, playing cards with drinks", title: "3. friends vote, you get paid", body: "the group votes. if it counts, the bounty is yours.", rot: -2 },
 ];
 
+// Stickers have a fixed height so the overlap is exact: 40% (88px) sits above the card's top edge.
+const STICKER_H = 220;
+const STICKER_OVERLAP = Math.round(STICKER_H * 0.4);
+
+/**
+ * O1. Mobile (< 768px): swipe carousel; the next card peeks by 24px, which is less than the card's
+ * padding, so only its border shows (plus a fade). Tablet/desktop: all 3 cards in a row, no dots.
+ */
 function StepHow({ onDone }: { onDone: () => void }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [idx, setIdx] = useState(0);
+  const last = HOW.length - 1;
   const onScroll = () => {
     const el = scroller.current;
-    if (!el) return;
-    const card = el.firstElementChild as HTMLElement | null;
-    const w = (card?.offsetWidth ?? el.clientWidth) + 16;
-    setIdx(Math.min(HOW.length - 1, Math.round(el.scrollLeft / w)));
+    const card = el?.firstElementChild as HTMLElement | null;
+    if (!el || !card) return;
+    setIdx(Math.min(last, Math.round(el.scrollLeft / (card.offsetWidth + 12))));
   };
   const next = () => {
-    if (idx >= HOW.length - 1) return onDone();
+    if (idx >= last) return onDone();
     const el = scroller.current;
     const card = el?.children[idx + 1] as HTMLElement | undefined;
-    card?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    if (el && card) el.scrollTo({ left: card.offsetLeft - 20, behavior: "smooth" });
   };
   return (
     <>
-      <Headline line1="here's" line2="the deal." accent="violet" />
+      <div className="tab:text-center">
+        <Headline line1="here's" line2="the deal." accent="violet" />
+      </div>
       <div
         ref={scroller}
         onScroll={onScroll}
-        className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-3 pt-12 [scrollbar-width:none]"
+        style={{ paddingTop: STICKER_OVERLAP + 8 }}
+        className={`-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-3 [scrollbar-width:none] tab:mx-0 tab:grid tab:snap-none tab:grid-cols-3 tab:gap-6 tab:overflow-visible tab:px-0 tab:[mask-image:none] ${
+          idx < last ? "[mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]" : ""
+        }`}
         aria-roledescription="carousel"
         aria-label="how it works"
       >
         {HOW.map((c, i) => (
           <section
             key={c.src}
-            className="raised relative flex min-h-[400px] w-[84%] shrink-0 snap-center flex-col justify-end p-6"
+            // mobile width = content box - 16px, so exactly 24px of the next card shows at the edge
+            className="raised flex w-[calc(100%-16px)] shrink-0 snap-start flex-col items-center px-6 pb-6 text-center tab:w-auto"
             aria-roledescription="slide"
             aria-label={`${i + 1} of ${HOW.length}`}
           >
-            <div className="absolute left-1/2 top-[-36px] -translate-x-1/2">
-              <Sticker src={c.src} alt={c.alt} rotate={c.rot} width={170} />
+            <div style={{ marginTop: -STICKER_OVERLAP, height: STICKER_H }} className="flex items-start justify-center">
+              <Sticker src={c.src} alt={c.alt} rotate={c.rot} height={STICKER_H} />
             </div>
-            <h2 className="font-display text-[26px] uppercase leading-none tracking-[-0.02em]">{c.title}</h2>
-            <p className="mt-2 text-[17px] leading-snug text-muted">{c.body}</p>
+            <h2 className="mt-6 font-display text-[24px] uppercase leading-none tracking-[-0.02em] desk:text-[26px]">{c.title}</h2>
+            <p className="mt-2 max-w-[300px] text-[17px] leading-snug text-muted">{c.body}</p>
           </section>
         ))}
       </div>
-      <div className="mt-auto flex items-center justify-between">
+      {/* mobile: dots + next / let's go */}
+      <div className="flex items-center justify-between tab:hidden">
         <div className="flex gap-2" aria-hidden>
           {HOW.map((c, i) => (
             <span key={c.src} className={`h-3 rounded-full ${i === idx ? "w-8 bg-primary" : "w-3 bg-line"}`} />
           ))}
         </div>
         <PillButton size="lg" onClick={next}>
-          {idx >= HOW.length - 1 ? "let's go" : "next"}
+          {idx >= last ? "let's go" : "next"}
+        </PillButton>
+      </div>
+      {/* tablet/desktop: one button under the row */}
+      <div className="hidden justify-center tab:flex">
+        <PillButton size="lg" onClick={onDone} className="min-w-[240px]">
+          let&apos;s go
         </PillButton>
       </div>
     </>
