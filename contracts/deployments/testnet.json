@@ -1,0 +1,206 @@
+{
+  "network": "Robinhood Chain testnet",
+  "chainId": 46630,
+  "rpcUrl": "https://rpc.testnet.chain.robinhood.com",
+  "explorerUrl": "https://explorer.testnet.chain.robinhood.com",
+  "contracts": {
+    "MockWIF": {
+      "address": "0xc8A4e1A956F9AA884D962346123FdC9554Ce713E",
+      "name": "Mock World is Flat",
+      "symbol": "mWIF",
+      "decimals": 18,
+      "verified": true,
+      "explorer": "https://explorer.testnet.chain.robinhood.com/address/0xc8A4e1A956F9AA884D962346123FdC9554Ce713E"
+    },
+    "BYWEscrow": {
+      "address": "0x7ccA41a329b9bA8e0F50C0711f63A55d8820724B",
+      "verified": true,
+      "explorer": "https://explorer.testnet.chain.robinhood.com/address/0x7ccA41a329b9bA8e0F50C0711f63A55d8820724B"
+    }
+  },
+  "inviteSigner": "0xa62937A20FBDBa3513d60619d11f28562aa081bf",
+  "deployer": "0x0DAC29759b70D9a0d60A95bf4A8BC1c4Ec9d1779",
+  "owner": "0x0DAC29759b70D9a0d60A95bf4A8BC1c4Ec9d1779",
+  "deployBlock": 149421187,
+  "escrowDeployBlock": 149421194,
+  "testWallets": {
+    "A": "0x3B031e43b2710D5D049e465A2d5675C958b659Ce",
+    "B": "0x43D86C35390f2B1ab9a9bDE01bAE4f2336771078",
+    "C": "0x4d07c74890D6a5469356C1e5ee20BEb6C517e898"
+  },
+  "smokeTest": {
+    "groupId": 1,
+    "passedDareId": 1,
+    "pendingAcceptedDareId": 2,
+    "pendingDareProofDeadlineUtc": "2026-11-06T09:24:41Z",
+    "cancelledDareId": 3
+  },
+  "transactions": {
+    "deploy": [
+      {
+        "step": "deploy MockWIF",
+        "hash": "0xeb0ec7959ea7e967bb7aa70ff7d9c700316a586cd06ff6f005a058d9cc49d719",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149421187,
+        "gasUsed": 584995,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xeb0ec7959ea7e967bb7aa70ff7d9c700316a586cd06ff6f005a058d9cc49d719"
+      },
+      {
+        "step": "deploy BYWEscrow",
+        "hash": "0xdefeaf415b7d158e92a1d2bab099ad82a7fd010441f358c7b270341414c39727",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149421194,
+        "gasUsed": 2560319,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xdefeaf415b7d158e92a1d2bab099ad82a7fd010441f358c7b270341414c39727"
+      }
+    ],
+    "smokeTest": [
+      {
+        "step": "1. fund A 0.0015 ETH",
+        "hash": "0xfd483a2fce3c586da0a4ddf0f7f724fdbc03692c9a5b64fdeaa539f3f746f2b6",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149422631,
+        "gasUsed": 21000,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xfd483a2fce3c586da0a4ddf0f7f724fdbc03692c9a5b64fdeaa539f3f746f2b6"
+      },
+      {
+        "step": "1. fund B 0.0015 ETH",
+        "hash": "0xd1d7aa4a95a7e078a20534f223c649577ae72fb0a2439945d3bd510a44ab56d6",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149422646,
+        "gasUsed": 21000,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xd1d7aa4a95a7e078a20534f223c649577ae72fb0a2439945d3bd510a44ab56d6"
+      },
+      {
+        "step": "1. fund C 0.0015 ETH",
+        "hash": "0xdd7fe8b71c626a6755be2a335d923b9f345947920a16aaf1fa01665ae4bdd532",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149422657,
+        "gasUsed": 21000,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xdd7fe8b71c626a6755be2a335d923b9f345947920a16aaf1fa01665ae4bdd532"
+      },
+      {
+        "step": "2. deployer createGroup(true) -> group 1",
+        "hash": "0x84f15f5195079669ce0af6b8d0e25d8b7816da3b5c5ef9c4d7e7e6fbf854a9b9",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149422669,
+        "gasUsed": 116310,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x84f15f5195079669ce0af6b8d0e25d8b7816da3b5c5ef9c4d7e7e6fbf854a9b9"
+      },
+      {
+        "step": "3. A joinGroup (permit)",
+        "hash": "0x9e93f78f224c6fbef35e85125853eee6b1d398638dbe347caaf86ec669c67946",
+        "from": "0x3b031e43b2710d5d049e465a2d5675c958b659ce",
+        "block": 149422680,
+        "gasUsed": 59822,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x9e93f78f224c6fbef35e85125853eee6b1d398638dbe347caaf86ec669c67946"
+      },
+      {
+        "step": "3. B joinGroup (permit)",
+        "hash": "0x65ee2e1328dced66d98412b3efbc61c9aabc650a73d41ac2ca05b6ed01b598d7",
+        "from": "0x43d86c35390f2b1ab9a9bde01bae4f2336771078",
+        "block": 149422688,
+        "gasUsed": 59822,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x65ee2e1328dced66d98412b3efbc61c9aabc650a73d41ac2ca05b6ed01b598d7"
+      },
+      {
+        "step": "3. C joinGroup (permit)",
+        "hash": "0xaec89a9feaf915063a23545ffe3d6daa12ffb7ab2ae9d58b4c498c7036717505",
+        "from": "0x4d07c74890d6a5469356c1e5ee20beb6c517e898",
+        "block": 149422696,
+        "gasUsed": 59822,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xaec89a9feaf915063a23545ffe3d6daa12ffb7ab2ae9d58b4c498c7036717505"
+      },
+      {
+        "step": "4. deployer approve 10,000 mWIF",
+        "hash": "0x0e3b86f3286c68cf23642a3e875c86524d687a5a3ce74247bf9630ac17786939",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149422708,
+        "gasUsed": 46391,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x0e3b86f3286c68cf23642a3e875c86524d687a5a3ce74247bf9630ac17786939"
+      },
+      {
+        "step": "4. deployer createDare 10,000 mWIF -> dare 1",
+        "hash": "0xeef16eed27aee05299ae3abbbd728de2a71c640feb4822ac56c2720e18d3f597",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149422719,
+        "gasUsed": 185118,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xeef16eed27aee05299ae3abbbd728de2a71c640feb4822ac56c2720e18d3f597"
+      },
+      {
+        "step": "5. A acceptDare(1)",
+        "hash": "0xf225ece11fb5f44e7961e05f37db5155428d7e7452fb4b3f7d6506f6878616a9",
+        "from": "0x3b031e43b2710d5d049e465a2d5675c958b659ce",
+        "block": 149422737,
+        "gasUsed": 77969,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xf225ece11fb5f44e7961e05f37db5155428d7e7452fb4b3f7d6506f6878616a9"
+      },
+      {
+        "step": "6. A submitProof(1)",
+        "hash": "0x18cbba880d929cea6ac1851d9a9c6f23646f051574ddfd851caabd9899e7ca02",
+        "from": "0x3b031e43b2710d5d049e465a2d5675c958b659ce",
+        "block": 149422744,
+        "gasUsed": 66648,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x18cbba880d929cea6ac1851d9a9c6f23646f051574ddfd851caabd9899e7ca02"
+      },
+      {
+        "step": "7. B vote(1, pass)",
+        "hash": "0x435e0c609a08a6a5eeb777e31770be014e82cde371363c9058f32ff68e9ca5dd",
+        "from": "0x43d86c35390f2b1ab9a9bde01bae4f2336771078",
+        "block": 149422755,
+        "gasUsed": 61002,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x435e0c609a08a6a5eeb777e31770be014e82cde371363c9058f32ff68e9ca5dd"
+      },
+      {
+        "step": "8. C settle(1) -> Passed",
+        "hash": "0x58321656b607d6aad75f5303de4de1d99fd73443583e2c6775660e8c1515ed93",
+        "from": "0x4d07c74890d6a5469356c1e5ee20beb6c517e898",
+        "block": 149422767,
+        "gasUsed": 75359,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x58321656b607d6aad75f5303de4de1d99fd73443583e2c6775660e8c1515ed93"
+      }
+    ],
+    "refundPath": [
+      {
+        "step": "5. deployer approve 2,000 mWIF",
+        "hash": "0x1c345fdfefd74a84445dfc1ed094f44582799ad3f8b563c62a5359cb91ac05de",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149423410,
+        "gasUsed": 46379,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x1c345fdfefd74a84445dfc1ed094f44582799ad3f8b563c62a5359cb91ac05de"
+      },
+      {
+        "step": "5. deployer createDare 1,000 mWIF -> dare 2",
+        "hash": "0x1e5f5e547f8a03b76a5c7335a474cca474f843a41acd6f1c76c70b0fd88532fa",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149423432,
+        "gasUsed": 172806,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x1e5f5e547f8a03b76a5c7335a474cca474f843a41acd6f1c76c70b0fd88532fa"
+      },
+      {
+        "step": "5. B acceptDare(2) (left pending)",
+        "hash": "0xf684079f7f16d3cf0c66550947669add5105d4984c27c9fe793082d953b9c7f6",
+        "from": "0x43d86c35390f2b1ab9a9bde01bae4f2336771078",
+        "block": 149423442,
+        "gasUsed": 77969,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0xf684079f7f16d3cf0c66550947669add5105d4984c27c9fe793082d953b9c7f6"
+      },
+      {
+        "step": "5. deployer createDare 1,000 mWIF -> dare 3",
+        "hash": "0x439aef29e0ea824329e61136e7a8ee4f5192eb7d837184ba8e487f549a6ed406",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149423454,
+        "gasUsed": 150906,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x439aef29e0ea824329e61136e7a8ee4f5192eb7d837184ba8e487f549a6ed406"
+      },
+      {
+        "step": "5. deployer cancelDare(3)",
+        "hash": "0x7fcedddd273b455f10c2bfe7bb2df24bf56dc57335f1b73ba44c0277fc2149e8",
+        "from": "0x0dac29759b70d9a0d60a95bf4a8bc1c4ec9d1779",
+        "block": 149423464,
+        "gasUsed": 48525,
+        "explorer": "https://explorer.testnet.chain.robinhood.com/tx/0x7fcedddd273b455f10c2bfe7bb2df24bf56dc57335f1b73ba44c0277fc2149e8"
+      }
+    ]
+  }
+}
