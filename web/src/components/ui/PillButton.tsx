@@ -1,7 +1,9 @@
 "use client";
 
+import { motion, type HTMLMotionProps } from "motion/react";
 import Link from "next/link";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { springs } from "@/lib/motion";
 
 export type PillVariant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
@@ -20,9 +22,13 @@ const SIZE: Record<Size, string> = {
   lg: "min-h-[60px] px-7 text-[20px]",
 };
 
+/**
+ * `press-lip` swaps the 6px lip for 2px while pressed (CSS, instant); the 4px drop and the 2px
+ * hover lift are motion springs (transform only).
+ */
 export function pillClass(variant: PillVariant = "primary", size: Size = "md", full = false) {
   return [
-    "press inline-flex select-none items-center justify-center gap-2 rounded-full border-[3px] border-line",
+    "press-lip inline-flex select-none items-center justify-center gap-2 rounded-full border-[3px] border-line",
     "font-extrabold tracking-[-0.04em] leading-none whitespace-nowrap",
     "disabled:cursor-not-allowed disabled:opacity-55 aria-disabled:cursor-not-allowed aria-disabled:opacity-55",
     VARIANT[variant],
@@ -30,6 +36,12 @@ export function pillClass(variant: PillVariant = "primary", size: Size = "md", f
     full ? "w-full" : "",
   ].join(" ");
 }
+
+export const pillMotion = {
+  whileHover: { y: -2 },
+  whileTap: { y: 4 },
+  transition: springs.snappy,
+} as const;
 
 function Spinner() {
   return <span className="block h-5 w-5 animate-byw-spin rounded-full border-[3px] border-current border-t-transparent opacity-80" aria-hidden />;
@@ -48,20 +60,24 @@ export function PillButton({
   className = "",
   type = "button",
   ...rest
-}: Common & ButtonHTMLAttributes<HTMLButtonElement>) {
+}: Common & Omit<HTMLMotionProps<"button">, "children">) {
+  const off = disabled || loading;
   return (
-    <button
+    <motion.button
       type={type}
-      disabled={disabled || loading}
+      disabled={off}
       aria-busy={loading || undefined}
       className={`${pillClass(variant, size, full)} ${className}`}
+      {...(off ? {} : pillMotion)}
       {...rest}
     >
       {loading && <Spinner />}
       {children}
-    </button>
+    </motion.button>
   );
 }
+
+const MotionLink = motion.create(Link);
 
 /** Same look, as a link. */
 export function PillLink({
@@ -74,8 +90,8 @@ export function PillLink({
   ...rest
 }: Common & { href: string; target?: string; rel?: string; "aria-label"?: string; onClick?: () => void }) {
   return (
-    <Link href={href} className={`${pillClass(variant, size, full)} ${className}`} {...rest}>
+    <MotionLink href={href} className={`${pillClass(variant, size, full)} ${className}`} {...pillMotion} {...rest}>
       {children}
-    </Link>
+    </MotionLink>
   );
 }

@@ -9,6 +9,7 @@ import { groupName } from "@/lib/format";
 import { useMockMode, withMock } from "@/lib/mock";
 import type { DareView, Feed } from "@/lib/types";
 import { AppShell } from "../app/AppShell";
+import { StaggerItem, StaggerList } from "../motion/Stagger";
 import { InviteButton, MembersPanel, StatsPanel } from "../app/Crews";
 import { DareCard } from "../app/DareCard";
 import { WaitingCard, waitingItems } from "../app/WaitingCard";
@@ -74,13 +75,13 @@ function GroupMain({ s, groupId }: { s: Session; groupId: number }) {
           <PillLink href={withMock(`/new?group=${f.group.id}`, mock)}>start one</PillLink>
         </EmptyState>
       ) : (
-        <ul className="flex flex-col gap-5" aria-label="dares, newest first">
+        <StaggerList className="flex flex-col gap-5" aria-label="dares, newest first">
           {f.dares.map((d) => (
-            <li key={d.id}>
+            <StaggerItem key={d.id}>
               <DareCard d={d} actions={actions} now={now} />
-            </li>
+            </StaggerItem>
           ))}
-        </ul>
+        </StaggerList>
       )}
     </div>
   );
@@ -112,7 +113,7 @@ function GroupRight({ s, groupId }: { s: Session; groupId: number }) {
 
 export function GroupScreen({ groupId }: { groupId: number }) {
   return (
-    <AppShell active="crews" right={(s) => <GroupRight s={s} groupId={groupId} />}>
+    <AppShell right={(s) => <GroupRight s={s} groupId={groupId} />}>
       {(s) => <GroupMain s={s} groupId={groupId} />}
     </AppShell>
   );

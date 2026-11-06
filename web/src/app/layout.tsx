@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo_Black, Bricolage_Grotesque, Caveat_Brush } from "next/font/google";
 import "./globals.css";
+import { FxLayer } from "@/components/fx/FxLayer";
 import { Providers } from "./providers";
 
 const archivoBlack = Archivo_Black({ weight: "400", subsets: ["latin"], variable: "--font-archivo-black", display: "swap" });
@@ -26,8 +27,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-harmony="comp"
       className={`${archivoBlack.variable} ${bricolage.variable} ${caveatBrush.variable} h-full`}
     >
-      <body className="min-h-full bg-bg text-cream">
+      <body className="min-h-full text-cream">
         <Providers>{children}</Providers>
+        <FxLayer />
       </body>
     </html>
   );

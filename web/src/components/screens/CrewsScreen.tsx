@@ -6,6 +6,7 @@ import { type Session } from "@/hooks/data";
 import { useActions } from "@/hooks/useActions";
 import { useMockMode, withMock } from "@/lib/mock";
 import { AppShell } from "../app/AppShell";
+import { StaggerItem, StaggerList } from "../motion/Stagger";
 import { CrewCard, InviteCodeCard, JoinPublicCard, StartGroupCard } from "../app/Crews";
 import { Headline } from "../ui/Headline";
 import { PillButton } from "../ui/PillButton";
@@ -40,17 +41,17 @@ function CrewsMain({ s }: { s: Session }) {
           <JoinPublicCard s={s} actions={actions} onJoined={openGroup} />
         </>
       )}
-      <ul className="flex flex-col gap-4">
+      <StaggerList className="flex flex-col gap-4">
         {groups.map((g) => (
-          <li key={g.id}>
+          <StaggerItem key={g.id}>
             <CrewCard g={g} />
-          </li>
+          </StaggerItem>
         ))}
-      </ul>
+      </StaggerList>
     </div>
   );
 }
 
 export function CrewsScreen() {
-  return <AppShell active="crews">{(s) => <CrewsMain s={s} />}</AppShell>;
+  return <AppShell>{(s) => <CrewsMain s={s} />}</AppShell>;
 }

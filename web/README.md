@@ -15,10 +15,12 @@ A Next.js app on the RH Chain testnet (46630), using Privy for login, Supabase f
 | `/wallet`, `/profile` | Address, balances and QR; your @name, photo and log out |
 | `/new` | Placeholder until the create screen ships in 3c-2b (links to `/dev` in development) |
 | `/dev` | The 3c-1 test harness. **Development only**: a production build returns 404. |
+| `/dev/motion` | Motion gallery: cursor, burst, deck, stamp, double tap, toast states, count-up, tag flip, vote bar, nav pill, stagger and skeleton. **Development only.** |
 
 - **Design tokens:** in [`src/app/theme.css`](src/app/theme.css) (harmony A, "complementary"), exposed to Tailwind v4 through `@theme`. Swapping in another harmony means adding one more `[data-harmony]` block.
 - **UI components:** in `src/components/ui/`.
 - **Shared transaction logic:** in `src/hooks/` (`useByw`, `useActions`).
+- **Motion (3c-2m):** presets live in [`src/lib/motion.ts`](src/lib/motion.ts) (springs, durations, stagger, the reduced-motion switch). `<FxLayer/>` in the root layout owns the particle canvas, the pixel cursor and the dot spotlight. Reusable pieces are in `src/components/motion/`. `/dev/motion` (development only) demos everything. Under `prefers-reduced-motion` there's no cursor, spotlight, particles or springs; only short fades remain.
 - **Mock mode:** add `?mock=1` to any app URL in `npm run dev` to render it with fixture data and a fake logged-in user, with no Privy login. Variants: `?mock=empty` and `?mock=external` (external wallet on the wrong network). Production builds ignore it.
 
 ## Run locally
@@ -56,6 +58,7 @@ Test wallets need testnet ETH for gas (gas is not sponsored). From `contracts/`:
 - `npm test`: vitest unit tests, in `src/server/*.test.ts`
 - `npm run verify-sync`: a read-only check that Supabase matches the chain. Run `set -a; source .env.local; set +a` first.
 - `npm run sync-abi`: regenerates `src/abi/*` from `../contracts`
+- `node scripts/motion-check.mjs video|perf`: records the O1 deck and the `/dev/motion` clips into `../design/screens/3c2m/` (needs `npm run dev`), or logs long tasks during the O1 transition at 4× CPU throttle (needs `next start -p 3001`).
 - `node scripts/screenshots.mjs`: with `npm run dev` running, screenshots every screen at 390×844 @2x and 1440×900 into `../design/screens/3c2a/`. It also checks for horizontal scroll, the bottom nav covering content, and "robinhood" anywhere in the UI.
 
 ## API

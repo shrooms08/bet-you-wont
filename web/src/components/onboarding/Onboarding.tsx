@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useBalances, useInvitePreview, useSession, type Session } from "@/hooks/data";
@@ -9,17 +10,21 @@ import { activeChain } from "@/lib/contracts";
 import { describeError } from "@/lib/errors";
 import { groupName, handle, PUBLIC_GROUP_ID, shortAddress } from "@/lib/format";
 import { useMockMode, withMock } from "@/lib/mock";
+import { springs } from "@/lib/motion";
 import type { InvitePreview } from "@/lib/types";
 import { DareText } from "../app/DareText";
 import { InviteCodeCard, JoinPublicCard, StartGroupCard } from "../app/Crews";
 import { AddressQr, WalletCard } from "../app/WalletCard";
 import { Avatar, DOODLE_SRC } from "../ui/Avatar";
 import { Headline } from "../ui/Headline";
-import { CameraIcon } from "../ui/icons";
+import { CameraIcon, CheckIcon, XIcon } from "../ui/icons";
 import { Money } from "../ui/Money";
 import { PillButton, PillLink } from "../ui/PillButton";
 import { StatusTag } from "../ui/StatusTag";
 import { EmptyState } from "../ui/States";
+import { PageEnter } from "../motion/PageEnter";
+import { StaggerItem, StaggerList } from "../motion/Stagger";
+import { StepHow } from "./HowItWorks";
 import { Sticker } from "./Sticker";
 
 export type Step = "how" | "signin" | "you" | "wallet" | "crew" | "first";
@@ -109,10 +114,10 @@ export function Onboarding({ inviteCode }: { inviteCode?: string }) {
           </PillButton>
         </div>
         {/* my-auto centers the block vertically when the screen is taller than the content */}
-        <div className="my-auto flex flex-col gap-6 py-4">
+        <PageEnter className="my-auto flex flex-col gap-6 py-4">
           {inviteNote && <div className="tab:mx-auto tab:w-full tab:max-w-[520px]">{inviteNote}</div>}
           <StepHow onDone={() => go("signin")} />
-        </div>
+        </PageEnter>
       </main>
     );
   }
@@ -126,6 +131,8 @@ export function Onboarding({ inviteCode }: { inviteCode?: string }) {
 
   return (
     <Frame>
+      {/* each step enters like a route: fade in + rise 12px */}
+      <PageEnter key={step} className="flex flex-1 flex-col gap-6">
       {header}
       {step === "signin" && <StepSignIn s={s} onMock={() => go("you")} />}
       {step === "you" && (
@@ -144,6 +151,7 @@ export function Onboarding({ inviteCode }: { inviteCode?: string }) {
       )}
       {step === "crew" && <StepCrew s={s} actions={actions} onPicked={(id) => go("first", `&group=${id}`)} />}
       {step === "first" && <StepFirst s={s} groupId={groupParam} />}
+      </PageEnter>
     </Frame>
   );
 }
@@ -187,90 +195,6 @@ function InviteNote({ invite }: { invite: InvitePreview }) {
   );
 }
 
-// ---------------------------------------------------------------- O1 how it works
-
-const HOW = [
-  { src: "/onboarding/o1-dared.png", alt: "someone riding a wheelie bin down a busy street", title: "1. get dared", body: "a friend bets you won't do something, and puts $wif on it.", rot: -4 },
-  { src: "/onboarding/o1-proof.png", alt: "a grandma doing a skateboard trick", title: "2. do it, post proof", body: "say aight bet, do the thing, post a photo or a clip.", rot: 3 },
-  { src: "/onboarding/o1-paid.png", alt: "two people dressed as ghosts, playing cards with drinks", title: "3. friends vote, you get paid", body: "the group votes. if it counts, the bounty is yours.", rot: -2 },
-];
-
-// Stickers have a fixed height so the overlap is exact: 40% (88px) sits above the card's top edge.
-const STICKER_H = 220;
-const STICKER_OVERLAP = Math.round(STICKER_H * 0.4);
-
-/**
- * O1. Mobile (< 768px): swipe carousel; the next card peeks by 24px, which is less than the card's
- * padding, so only its border shows (plus a fade). Tablet/desktop: all 3 cards in a row, no dots.
- */
-function StepHow({ onDone }: { onDone: () => void }) {
-  const scroller = useRef<HTMLDivElement>(null);
-  const [idx, setIdx] = useState(0);
-  const last = HOW.length - 1;
-  const onScroll = () => {
-    const el = scroller.current;
-    const card = el?.firstElementChild as HTMLElement | null;
-    if (!el || !card) return;
-    setIdx(Math.min(last, Math.round(el.scrollLeft / (card.offsetWidth + 12))));
-  };
-  const next = () => {
-    if (idx >= last) return onDone();
-    const el = scroller.current;
-    const card = el?.children[idx + 1] as HTMLElement | undefined;
-    if (el && card) el.scrollTo({ left: card.offsetLeft - 20, behavior: "smooth" });
-  };
-  return (
-    <>
-      <div className="tab:text-center">
-        <Headline line1="here's" line2="the deal." accent="violet" />
-      </div>
-      <div
-        ref={scroller}
-        onScroll={onScroll}
-        style={{ paddingTop: STICKER_OVERLAP + 8 }}
-        className={`-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-3 [scrollbar-width:none] tab:mx-0 tab:grid tab:snap-none tab:grid-cols-3 tab:gap-6 tab:overflow-visible tab:px-0 tab:[mask-image:none] ${
-          idx < last ? "[mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]" : ""
-        }`}
-        aria-roledescription="carousel"
-        aria-label="how it works"
-      >
-        {HOW.map((c, i) => (
-          <section
-            key={c.src}
-            // mobile width = content box - 16px, so exactly 24px of the next card shows at the edge
-            className="raised flex w-[calc(100%-16px)] shrink-0 snap-start flex-col items-center px-6 pb-6 text-center tab:w-auto"
-            aria-roledescription="slide"
-            aria-label={`${i + 1} of ${HOW.length}`}
-          >
-            <div style={{ marginTop: -STICKER_OVERLAP, height: STICKER_H }} className="flex items-start justify-center">
-              <Sticker src={c.src} alt={c.alt} rotate={c.rot} height={STICKER_H} />
-            </div>
-            <h2 className="mt-6 font-display text-[24px] uppercase leading-none tracking-[-0.02em] desk:text-[26px]">{c.title}</h2>
-            <p className="mt-2 max-w-[300px] text-[17px] leading-snug text-muted">{c.body}</p>
-          </section>
-        ))}
-      </div>
-      {/* mobile: dots + next / let's go */}
-      <div className="flex items-center justify-between tab:hidden">
-        <div className="flex gap-2" aria-hidden>
-          {HOW.map((c, i) => (
-            <span key={c.src} className={`h-3 rounded-full ${i === idx ? "w-8 bg-primary" : "w-3 bg-line"}`} />
-          ))}
-        </div>
-        <PillButton size="lg" onClick={next}>
-          {idx >= last ? "let's go" : "next"}
-        </PillButton>
-      </div>
-      {/* tablet/desktop: one button under the row */}
-      <div className="hidden justify-center tab:flex">
-        <PillButton size="lg" onClick={onDone} className="min-w-[240px]">
-          let&apos;s go
-        </PillButton>
-      </div>
-    </>
-  );
-}
-
 // ---------------------------------------------------------------- O2 sign in
 
 function StepSignIn({ s, onMock }: { s: Session; onMock: () => void }) {
@@ -282,7 +206,7 @@ function StepSignIn({ s, onMock }: { s: Session; onMock: () => void }) {
     <>
       <div className="relative min-h-[300px] pt-16">
         <div className="absolute -right-2 top-0 z-0">
-          <Sticker src="/onboarding/signin-hero.png" alt="someone with a traffic cone on their head doing peace signs" rotate={5} width={150} />
+          <Sticker src="/onboarding/signin-hero.png" alt="someone with a traffic cone on their head doing peace signs" rotate={5} width={150} float />
         </div>
         <div className="relative z-10 max-w-[300px]">
           <Headline line1="bet you" line2="won't." accent="lime" size="xl" />
@@ -370,9 +294,9 @@ function StepYou({ s, actions, onDone }: { s: Session; actions: Actions; onDone:
     empty: "3 to 20 letters, numbers or _",
     invalid: "3 to 20 letters, numbers or _",
     checking: "checking…",
-    available: `✓ @${name} is yours`,
+    available: `@${name} is yours`,
     taken: "taken. try another",
-    yours: "✓ that's you",
+    yours: "that's you",
     error: check.reason ?? "couldn't check right now",
   };
 
@@ -420,7 +344,24 @@ function StepYou({ s, actions, onDone }: { s: Session; actions: Actions; onDone:
             aria-live="polite"
             className={`pl-2 text-[15px] ${ok ? "text-accent-2" : check.status === "taken" ? "text-danger" : "text-muted"}`}
           >
-            {hint[check.status]}
+            <span className="inline-flex items-center gap-1.5">
+              <AnimatePresence initial={false} mode="popLayout">
+                {(ok || check.status === "taken") && (
+                  <motion.span
+                    key={ok ? "ok" : "no"}
+                    aria-hidden
+                    initial={{ scale: 0, rotate: -30 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={springs.bouncy}
+                    className={`grid h-6 w-6 place-items-center rounded-full ${ok ? "bg-primary text-on-primary" : "bg-danger text-on-danger"}`}
+                  >
+                    {ok ? <CheckIcon size={14} /> : <XIcon size={12} />}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+              {hint[check.status]}
+            </span>
           </p>
         </div>
 
@@ -591,11 +532,17 @@ function StepCrew({ s, actions, onPicked }: { s: Session; actions: Actions; onPi
   return (
     <>
       <Headline line1="find your" line2="crew." accent="lime" />
-      <div className="mt-3 flex flex-col gap-5">
-        <JoinPublicCard s={s} actions={actions} onJoined={onPicked} />
-        <InviteCodeCard />
-        <StartGroupCard actions={actions} onCreated={onPicked} />
-      </div>
+      <StaggerList as="div" className="mt-3 flex flex-col gap-5">
+        <StaggerItem as="div">
+          <JoinPublicCard s={s} actions={actions} onJoined={onPicked} />
+        </StaggerItem>
+        <StaggerItem as="div">
+          <InviteCodeCard />
+        </StaggerItem>
+        <StaggerItem as="div">
+          <StartGroupCard actions={actions} onCreated={onPicked} />
+        </StaggerItem>
+      </StaggerList>
     </>
   );
 }
@@ -616,16 +563,16 @@ function StepFirst({ s, groupId }: { s: Session; groupId: number }) {
     <>
       <Headline line1="send your" line2="first dare." accent="violet" />
       <p className="-mt-2 text-[17px] text-muted">to anyone in {label}. pick one, you set the bounty next.</p>
-      <ul className="flex flex-col gap-5">
+      <StaggerList className="flex flex-col gap-5">
         {FIRST_DARES.map((text) => (
-          <li key={text} className="raised flex items-end justify-between gap-3 p-5">
+          <StaggerItem key={text} className="raised flex items-end justify-between gap-3 p-5">
             <DareText text={text} size="sm" className="min-w-0 flex-1" />
             <PillLink href={withMock(`/new?group=${groupId}&text=${encodeURIComponent(text)}`, mock)} aria-label={`send it: ${text}`}>
               send it
             </PillLink>
-          </li>
+          </StaggerItem>
         ))}
-      </ul>
+      </StaggerList>
       <PillLink href={withMock("/home", mock)} variant="ghost" full>
         skip, just look around
       </PillLink>

@@ -1,8 +1,10 @@
 "use client";
 
+import { motion } from "motion/react";
 import { useState } from "react";
 import type { Actions } from "@/hooks/useActions";
 import { formatWif, handle, timeAgo, timeLeft } from "@/lib/format";
+import { springs } from "@/lib/motion";
 import type { DareView } from "@/lib/types";
 import { AvatarChip } from "../ui/Avatar";
 import { Money, WIF_LABEL } from "../ui/Money";
@@ -56,6 +58,37 @@ function ProofMedia({ d }: { d: DareView }) {
   );
 }
 
+/** "2 of 3 say it counts" + a fill that springs (scaleX, transform only) when the count changes. */
+export function VoteBar({ pass, fail, eligible }: { pass: number; fail: number; eligible: number }) {
+  const ratio = eligible > 0 ? Math.min(1, pass / eligible) : 0;
+  return (
+    <div className="mt-3">
+      <div className="flex justify-between text-[15px]">
+        <span className="font-extrabold">
+          {pass} of {eligible} say it counts
+        </span>
+        {fail > 0 && <span className="text-muted">{fail} said nah</span>}
+      </div>
+      <div
+        className="mt-2 h-3.5 overflow-hidden rounded-full border-[3px] border-line bg-inset"
+        role="progressbar"
+        aria-label="votes that say it counts"
+        aria-valuemin={0}
+        aria-valuemax={eligible}
+        aria-valuenow={pass}
+      >
+        <motion.div
+          className="h-full origin-left bg-primary"
+          initial={false}
+          animate={{ scaleX: ratio }}
+          transition={springs.smooth}
+          style={{ originX: 0 }}
+        />
+      </div>
+    </div>
+  );
+}
+
 /** A dare on the group feed: media, text, who dared who, money, tag, time, inline actions. */
 export function DareCard({ d, actions, now }: { d: DareView; actions: Actions; now: number }) {
   const [proofOpen, setProofOpen] = useState(false);
@@ -85,26 +118,7 @@ export function DareCard({ d, actions, now }: { d: DareView; actions: Actions; n
       </div>
       <p className="mt-3 text-[15px] text-muted">{dareNote(d, now)}</p>
 
-      {kind === "VOTING" && eligible > 0 && (
-        <div className="mt-3">
-          <div className="flex justify-between text-[15px]">
-            <span className="font-extrabold">
-              {d.passVotes} of {eligible} say it counts
-            </span>
-            {d.failVotes > 0 && <span className="text-muted">{d.failVotes} said nah</span>}
-          </div>
-          <div
-            className="mt-2 h-3.5 overflow-hidden rounded-full border-[3px] border-line bg-inset"
-            role="progressbar"
-            aria-label="votes that say it counts"
-            aria-valuemin={0}
-            aria-valuemax={eligible}
-            aria-valuenow={d.passVotes}
-          >
-            <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (d.passVotes / eligible) * 100)}%` }} />
-          </div>
-        </div>
-      )}
+      {kind === "VOTING" && eligible > 0 && <VoteBar pass={d.passVotes} fail={d.failVotes} eligible={eligible} />}
 
       {(d.canAccept || d.canVote || d.canSettle || d.canCancel || d.canSubmitProof) && (
         <div className="mt-4 flex flex-wrap gap-3">

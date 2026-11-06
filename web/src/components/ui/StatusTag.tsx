@@ -1,3 +1,8 @@
+"use client";
+
+import { AnimatePresence, motion } from "motion/react";
+import { springs } from "@/lib/motion";
+
 export type TagKind = "OPEN" | "AIGHT BET" | "VOTING" | "PASSED" | "FAILED" | "EXPIRED" | "CANCELLED";
 
 // Symbol + word: status is never carried by color alone.
@@ -22,14 +27,24 @@ export function tagFor(state: string, outcome: string): TagKind {
   return "EXPIRED";
 }
 
+/** Status pill. When the status changes it flips over (rotateX) to the new one; no flip on mount. */
 export function StatusTag({ kind, className = "" }: { kind: TagKind; className?: string }) {
   const t = TAGS[kind];
   return (
-    <span
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border-[3px] border-line px-3 py-1 font-display text-[12px] uppercase leading-none tracking-normal ${t.cls} ${className}`}
-    >
-      <span aria-hidden>{t.sym}</span>
-      {kind}
+    <span className={`inline-grid [perspective:400px] ${className}`}>
+      <AnimatePresence initial={false} mode="wait">
+        <motion.span
+          key={kind}
+          initial={{ rotateX: -90, opacity: 0 }}
+          animate={{ rotateX: 0, opacity: 1 }}
+          exit={{ rotateX: 90, opacity: 0 }}
+          transition={springs.snappy}
+          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border-[3px] border-line px-3 py-1 font-display text-[12px] uppercase leading-none tracking-normal ${t.cls}`}
+        >
+          <span aria-hidden>{t.sym}</span>
+          {kind}
+        </motion.span>
+      </AnimatePresence>
     </span>
   );
 }

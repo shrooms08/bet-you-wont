@@ -16,7 +16,7 @@ export function Skeleton({ count = 2, height = 150 }: { count?: number; height?:
   return (
     <div className="flex flex-col gap-5" aria-busy="true" aria-label="loading">
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="raised animate-byw-pulse" style={{ height }} />
+        <div key={i} className="raised byw-shimmer" style={{ height }} />
       ))}
     </div>
   );

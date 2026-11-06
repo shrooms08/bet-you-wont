@@ -4,6 +4,7 @@ import { PrivyProvider } from "@privy-io/react-auth";
 import { WagmiProvider } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { MotionConfig } from "motion/react";
 import { TxToastProvider } from "@/components/tx/TxToast";
 import { activeChain } from "@/lib/contracts";
 import { wagmiConfig } from "@/lib/wagmi";
@@ -38,7 +39,10 @@ export function Providers({ children }: { children: ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
-          <TxToastProvider>{children}</TxToastProvider>
+          {/* "user": under prefers-reduced-motion, transform/layout animations are skipped (opacity only) */}
+          <MotionConfig reducedMotion="user">
+            <TxToastProvider>{children}</TxToastProvider>
+          </MotionConfig>
         </WagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>

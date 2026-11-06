@@ -49,13 +49,13 @@ function NewMain({ s }: { s: Session }) {
 }
 
 export function NewScreen() {
-  return <AppShell active="new">{(s) => <NewMain s={s} />}</AppShell>;
+  return <AppShell>{(s) => <NewMain s={s} />}</AppShell>;
 }
 
 /** /wallet: address, balances, QR. The only screen that shows wallet addresses. */
 export function WalletScreen() {
   return (
-    <AppShell active="wallet">
+    <AppShell>
       {(s) => (
         <div className="flex flex-col gap-6">
           <Headline line1="your" line2="wallet." accent="lime" />
@@ -75,7 +75,7 @@ export function ProfileScreen() {
   const router = useRouter();
   const mock = useMockMode();
   return (
-    <AppShell active="profile">
+    <AppShell>
       {(s) => (
         <div className="flex flex-col gap-6">
           <Headline line1="that's" line2="you." accent="lime" />

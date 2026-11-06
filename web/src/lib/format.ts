@@ -3,7 +3,11 @@ import { formatUnits } from "viem";
 
 /** Whole-token amount from wei, e.g. 5000000000000000000000n -> "5,000"; small amounts keep 2 decimals. */
 export function formatWif(wei: bigint | string): string {
-  const tokens = Number(formatUnits(BigInt(wei), 18));
+  return formatTokens(Number(formatUnits(BigInt(wei), 18)));
+}
+
+/** Same formatting for a plain token number (used by the count-up animation). */
+export function formatTokens(tokens: number): string {
   if (tokens >= 100) return Math.round(tokens).toLocaleString("en-US");
   return tokens.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }

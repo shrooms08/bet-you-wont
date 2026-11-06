@@ -6,6 +6,7 @@ import { useActions } from "@/hooks/useActions";
 import { groupName } from "@/lib/format";
 import { useMockMode, withMock } from "@/lib/mock";
 import { AppShell } from "../app/AppShell";
+import { StaggerItem, StaggerList } from "../motion/Stagger";
 import { CrewCard, JoinPublicCard, MembersPanel, StartGroupCard, StatsPanel } from "../app/Crews";
 import { WaitingCard, waitingItems } from "../app/WaitingCard";
 import { Headline } from "../ui/Headline";
@@ -36,9 +37,13 @@ function HomeMain({ s }: { s: Session }) {
             <PillLink href={withMock("/new", mock)}>new dare</PillLink>
           </EmptyState>
         )}
-        {items.map((item) => (
-          <WaitingCard key={item.dare.id} item={item} me={me} actions={actions} />
-        ))}
+        <StaggerList as="div" className="flex flex-col gap-4">
+          {items.map((item) => (
+            <StaggerItem as="div" key={item.dare.id}>
+              <WaitingCard item={item} me={me} actions={actions} />
+            </StaggerItem>
+          ))}
+        </StaggerList>
       </section>
       )}
 
@@ -51,7 +56,13 @@ function HomeMain({ s }: { s: Session }) {
             <StartGroupCard actions={actions} onCreated={openGroup} />
           </>
         ) : (
-          groups.map((g) => <CrewCard key={g.id} g={g} />)
+          <StaggerList as="div" className="flex flex-col gap-4">
+            {groups.map((g) => (
+              <StaggerItem as="div" key={g.id}>
+                <CrewCard g={g} />
+              </StaggerItem>
+            ))}
+          </StaggerList>
         )}
       </section>
     </div>
@@ -79,5 +90,5 @@ function HomeRight({ s }: { s: Session }) {
 }
 
 export function HomeScreen() {
-  return <AppShell active="home" right={(s) => <HomeRight s={s} />}>{(s) => <HomeMain s={s} />}</AppShell>;
+  return <AppShell right={(s) => <HomeRight s={s} />}>{(s) => <HomeMain s={s} />}</AppShell>;
 }

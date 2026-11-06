@@ -1,13 +1,20 @@
 "use client";
 
+import { motion } from "motion/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { springs } from "@/lib/motion";
 import { useMockMode, withMock } from "@/lib/mock";
 import type { PublicProfile } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { CrewsIcon, HomeIcon, PlusIcon, ProfileIcon, WalletIcon } from "./icons";
 
 export type NavKey = "home" | "crews" | "new" | "wallet" | "profile";
+
+/** The lime "you are here" pill: one per nav, shared layoutId, so it glides between items. */
+function ActivePill({ id }: { id: string }) {
+  return <motion.span layoutId={id} className="absolute inset-0 rounded-full bg-primary" transition={springs.smooth} aria-hidden />;
+}
 
 const ITEMS: Array<{ key: NavKey; href: string; label: string; icon: (size: number) => ReactNode }> = [
   { key: "home", href: "/home", label: "home", icon: (s) => <HomeIcon size={s} /> },
@@ -39,11 +46,12 @@ export function BottomNav({ active }: { active?: NavKey }) {
                 href={withMock(item.href, mock)}
                 aria-label={item.label}
                 aria-current={on ? "page" : undefined}
-                className={`press grid place-items-center border-[3px] border-line ${
+                className={`press relative grid place-items-center border-[3px] border-line bg-surface ${
                   center ? "-mt-3 h-[68px] w-[68px] rounded-full" : "h-14 w-[62px] rounded-full"
-                } ${on ? "bg-primary text-on-primary" : center ? "bg-surface text-cream" : "bg-surface text-cream"}`}
+                } ${on ? "text-on-primary" : "text-cream"}`}
               >
-                {item.icon(center ? 28 : 26)}
+                {on && <ActivePill id="nav-pill-bottom" />}
+                <span className="relative">{item.icon(center ? 28 : 26)}</span>
               </Link>
             </li>
           );
@@ -72,12 +80,13 @@ export function DesktopRail({ active, me, balance }: { active?: NavKey; me: Publ
                 <Link
                   href={withMock(item.href, mock)}
                   aria-current={on ? "page" : undefined}
-                  className={`press flex items-center gap-3 rounded-full border-[3px] border-line px-5 ${
+                  className={`press relative flex items-center gap-3 rounded-full border-[3px] border-line px-5 ${
                     isNew ? "min-h-16 font-display text-[19px] uppercase tracking-normal" : "min-h-[52px] text-[19px] font-extrabold"
-                  } ${on || isNew ? "bg-primary text-on-primary" : "bg-surface text-cream"}`}
+                  } ${isNew ? "bg-primary text-on-primary" : on ? "bg-surface text-on-primary" : "bg-surface text-cream"}`}
                 >
-                  {item.icon(isNew ? 22 : 22)}
-                  {item.label}
+                  {on && !isNew && <ActivePill id="nav-pill-rail" />}
+                  <span className="relative">{item.icon(22)}</span>
+                  <span className="relative">{item.label}</span>
                 </Link>
               </li>
             );
