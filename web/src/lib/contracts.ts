@@ -20,6 +20,7 @@ type NetworkConfig = {
   escrow: Address | null; // null = not deployed on this network yet
   token: Address;
   tokenSymbol: string;
+  deployBlock: bigint | null; // first block the escrow can have logs in
 };
 
 const NETWORKS: Record<NetworkName, NetworkConfig> = {
@@ -28,12 +29,14 @@ const NETWORKS: Record<NetworkName, NetworkConfig> = {
     escrow: testnetDeployment.escrow,
     token: testnetDeployment.token,
     tokenSymbol: testnetDeployment.tokenSymbol,
+    deployBlock: BigInt(testnetDeployment.deployBlock),
   },
   mainnet: {
     chain: rhChain,
     escrow: null,
     token: "0x5173b8eA6923c2d40267890D45C46a3480954773", // real $wif
     tokenSymbol: "WIF",
+    deployBlock: null,
   },
 };
 
@@ -41,6 +44,8 @@ export const network: NetworkName = readNetwork();
 export const activeChain = NETWORKS[network].chain;
 export const tokenAddress = NETWORKS[network].token;
 export const tokenSymbol = NETWORKS[network].tokenSymbol;
+/** The real $wif address on mainnet, used for USD pricing on every network (mWIF has no market). */
+export const MAINNET_WIF_ADDRESS: Address = NETWORKS.mainnet.token;
 export const escrowAbi = bywEscrowAbi;
 // The token ABI is the standard ERC20 + burn surface, identical for mWIF and $wif.
 export const tokenAbi = mockWifAbi;
@@ -50,6 +55,13 @@ export function escrowAddress(): Address {
   const addr = NETWORKS[network].escrow;
   if (!addr) throw new Error(`BYWEscrow is not deployed on ${network} yet`);
   return addr;
+}
+
+/** The block the escrow was deployed at on the active network. Throws if not deployed. */
+export function escrowDeployBlock(): bigint {
+  const b = NETWORKS[network].deployBlock;
+  if (b === null) throw new Error(`BYWEscrow is not deployed on ${network} yet`);
+  return b;
 }
 
 export function explorerTx(hash: string): string {
