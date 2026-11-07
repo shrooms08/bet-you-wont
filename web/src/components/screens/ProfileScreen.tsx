@@ -14,6 +14,7 @@ import { plainError } from "@/lib/plainErrors";
 import { useMockMode, withMock } from "@/lib/mock";
 import type { ProofTile } from "@/lib/types";
 import { AppShell } from "../app/AppShell";
+import { Sheet } from "../app/Sheets";
 import { StreakFlame } from "../app/People";
 import { FreezeButton } from "../app/Score";
 import { Avatar } from "../ui/Avatar";
@@ -172,14 +173,18 @@ function ProfileMain({ s, username }: { s: Session; username: string | null }) {
   );
 }
 
-/** "delete my profile" with a confirm step. Onchain records stay; everything we store about you goes. */
+/**
+ * "delete my profile": a quiet text link at the bottom right of your profile (just above the footer),
+ * with a 44px tap target. It opens a confirm dialog that explains what goes and what stays onchain.
+ */
 function DeleteProfile({ s }: { s: Session }) {
   const qc = useQueryClient();
   const router = useRouter();
-  const [step, setStep] = useState<"idle" | "confirm" | "busy">("idle");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function remove() {
-    setStep("busy");
+    setBusy(true);
     setError(null);
     try {
       if (!s.mock) await s.byw.api("/api/profile/delete", { body: {} });
@@ -187,45 +192,61 @@ function DeleteProfile({ s }: { s: Session }) {
       router.replace(s.mock ? "/start?mock=1" : "/start");
     } catch (err) {
       setError(plainError(describeError(err)));
-      setStep("confirm");
+      setBusy(false);
     }
   }
+  const close = () => {
+    if (busy) return;
+    setOpen(false);
+    setError(null);
+  };
   return (
-    <section className="raised flex flex-col gap-3 p-5" aria-label="your data">
-      <h2 className="font-display text-[16px] uppercase leading-tight tracking-normal">your data</h2>
-      <p className="text-[15px] text-muted">
-        delete your profile, photo, proof files and 🔥 reactions. your @name is freed. dares, votes and bounties are onchain and can&apos;t be deleted.{" "}
-        <Link href="/privacy" className="underline">
-          privacy
-        </Link>
-      </p>
-      <AnimatePresence initial={false} mode="wait">
-        {step === "idle" ? (
-          <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <PillButton variant="ghost" size="sm" onClick={() => setStep("confirm")}>
-              delete my profile
-            </PillButton>
-          </motion.div>
-        ) : (
-          <motion.div key="confirm" role="alertdialog" aria-label="delete your profile?" className="flex flex-col gap-3 rounded-[20px] border-[3px] border-danger p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <p className="text-[17px] font-extrabold tracking-[-0.03em]">delete your profile for good? this can&apos;t be undone.</p>
-            <div className="grid grid-cols-2 gap-2">
-              <PillButton size="sm" variant="ghost" disabled={step === "busy"} onClick={() => setStep("idle")}>
-                keep it
-              </PillButton>
-              <PillButton size="sm" variant="danger" loading={step === "busy"} onClick={() => void remove()}>
-                delete
-              </PillButton>
+    <>
+      {/* tucked just above the footer links (AppShell renders them with mt-12) */}
+      <div className="-mb-9 mt-4 flex items-center justify-end gap-2 text-[13px] text-muted">
+        <span className="hidden desk:inline" aria-hidden>
+          dares stay onchain ·
+        </span>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          className="-mr-2 inline-flex min-h-11 items-center rounded-md px-2 text-muted underline-offset-2 hover:underline focus-visible:underline"
+        >
+          delete my profile
+        </button>
+      </div>
+      <AnimatePresence>
+        {open && (
+          <Sheet title="delete your profile?" onClose={close}>
+            <div className="flex flex-col gap-4">
+              <p className="text-[16px] leading-snug">
+                this deletes your profile, photo, proof files and 🔥 reactions, and frees your @name. it can&apos;t be undone.
+              </p>
+              <p className="text-[15px] text-muted">
+                dares, votes, joins and bounties are onchain, so they stay. they never include your photos or videos.{" "}
+                <Link href="/privacy" className="underline underline-offset-2">
+                  privacy
+                </Link>
+              </p>
+              {error && (
+                <p className="text-[14px] text-danger" role="alert">
+                  {error}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <PillButton variant="ghost" disabled={busy} onClick={close}>
+                  keep it
+                </PillButton>
+                <PillButton variant="danger" loading={busy} onClick={() => void remove()}>
+                  delete
+                </PillButton>
+              </div>
             </div>
-          </motion.div>
+          </Sheet>
         )}
       </AnimatePresence>
-      {error && (
-        <p className="text-[14px] text-danger" role="alert">
-          {error}
-        </p>
-      )}
-    </section>
+    </>
   );
 }
 

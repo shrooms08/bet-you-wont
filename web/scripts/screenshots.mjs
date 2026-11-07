@@ -76,6 +76,7 @@ const SCREENS = [
   { name: "44-dare-no-votes", path: "/d/32?mock=1", nav: true, set: "audit" },
   { name: "45-invite-rotate", path: "/g/7?mock=1", nav: true, sequence: ["invite", "new invite link"], afterClickMs: 600, waitText: "old one stops working", set: "audit" },
   { name: "46-sign-in-terms", path: "/start?step=signin", waitText: "i agree to the", set: "audit" },
+  { name: "47-delete-profile-dialog", path: "/profile?mock=1", nav: true, clickText: "delete my profile", afterClickMs: 600, waitText: "can't be undone", set: "audit" },
   // last: marks this browser under 18 in localStorage (each viewport gets a fresh context)
   { name: "38-under-18", path: "/start?step=signin", clickText: "i'm under 18", afterClickMs: 700, waitText: "come back when", set: "3c2b2" },
 ];
