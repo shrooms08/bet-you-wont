@@ -25,7 +25,41 @@ Contract checks for v2:
 - 92 tests pass, including 2 mainnet fork tests (a pass burns exactly 5% of the real supply; no votes refunds exactly 100%).
 - 100% line, statement, branch and function coverage on `BYWEscrow.sol`.
 
-All other findings are still open, including H-2, which is a web-app issue.
+The app-side fixes for the other findings are listed in "Audit fixes" above.
+
+---
+
+## Audit fixes (2026-11-07, app-only)
+
+Contract fixes are in `9ab12e8`. Every other fix is in the app commit `__APPFIX__` ("Audit fixes: app security, legal pages, reports, deletion"). That commit adds no contract changes. Its SQL is `supabase/migrations/005_audit_fixes.sql`, applied and verified.
+
+| ID | Status | What changed |
+|---|---|---|
+| H-1 | **Fixed** (`9ab12e8`) + hardened | **Contract (v2):** voters are snapshotted when the dare is created.<br>**App:** a public wifie gives each Privy account a permit for one wallet only (`public_permits`), and only once the account is 10 minutes old. Blocked profiles get no public permits. |
+| H-2 | **Fixed** | Proof media is looked up by `(dare_id, proof_hash)`. It shows only if the proof row was finalized for that exact dare by that dare's doer (`server/proofMatch.ts`). A copied hash shows "proof missing". This covers the feeds, the dare API, both share-card routes, profile grids and the admin queue. Tests include the cross-dare hash attack. |
+| M-1 | **Fixed** | **Bucket:** `proofs` is private.<br>**URLs:** 1-hour signed URLs, made only after each route's visibility check, reused for 50 minutes per server instance.<br>**Share cards:** fetch the media server-side.<br>Avatars stay public. |
+| M-2 | **Fixed** (`9ab12e8`) | A dare with no votes refunds the creator 100% (`NoVotes`). |
+| M-3 | **Accepted** (open) | The owner is still a single deployer wallet, and the invite signer key still lives on the server. Recommended: move ownership to a multisig, and keep the signer key in a KMS. |
+| M-4 | **Fixed** | **Upload links:** a proof upload link needs an active, unused capture session owned by the caller. Each session allows one in-flight upload per role (the media file, or a video's poster). A retake deletes the previous file.<br>**Budgets:** 300 MB of proof and 10 avatars per user per rolling 24 h (`uploads` ledger). An old avatar is deleted when you save a new one.<br>**Daily cleanup:** Vercel Cron calls `/api/cron/cleanup` with `CRON_SECRET`. It removes, after 24 h: proof files and posters not linked to a dare's finalized proof, proof rows that never went onchain, expired sessions, unreferenced avatars, and old ledger and rate-limit rows. |
+| M-5 | **Fixed** | Sync commits the cursor after each written chunk (`sync_progress`, which holds the lease). A refused or oversized range is split in half. Each pass has caps of 3,000 logs and 45 s. Malformed events and rows are skipped and logged. The cursor never moves past an unwritten chunk. |
+| M-6 | **Fixed** | An unknown dare id never forces a sync: only an id that exists onchain waits for a normal throttled sync. Per-user (30/min) and per-IP limits apply on `/api/dares/<id>`, `/api/home`, `/api/feed` and `/api/groups/<id>/feed`. `/api/sync` allows 30/min per IP. |
+| M-7 | **Fixed** | **Enforced on every route:** `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` and HSTS.<br>**Report-only:** a full CSP allowing Privy, WalletConnect, Supabase and the Robinhood Chain RPCs. In a production-build browser run (home, onboarding, legal pages, invite page, and the Privy login modal with its iframe) it reported **0 violations**, so it can be enforced next. |
+| M-8 | **Fixed** | **Pages:** `/terms`, `/privacy` and `/guidelines`, linked in the footer and from the 18+ checkbox.<br>**Reporting:** a report action on every feed post and dare. Content auto-hides after 2 reporters (public wifie) or 3 (private), and it's hidden for the reporter at once.<br>**Admin:** `/admin` (`ADMIN_WALLETS`) can hide or unhide, delete a proof file, block, or delete a profile's data, and every action is logged.<br>**Deletion:** "delete my profile". |
+| M-9 | **Partly fixed** | Signing up now requires agreeing to the terms. The 18+ gate is still self-attested, and the under-18 answer still lives in the browser. |
+| M-10 | **Fixed** | **Rename:** the chain is named "Robinhood Chain" / "Robinhood Chain Testnet" (UI and Privy), and docs and reports now use the full name. AUDIT.md still quotes the old wording only where it describes the original finding.<br>**Checker:** the screenshot checker allows exactly "Robinhood Chain" and fails on any other "Robinhood" or "RH Chain". |
+| L-1 | **Accepted** | A contract trait; the public cap limits the exposure. |
+| L-2 | **Fixed** (`9ab12e8`) | `renounceOwnership` reverts. |
+| L-3 | **Fixed** | Sessions are single-use: `used_at` is checked and claimed atomically. Finalize also requires that the files were issued for that session. |
+| L-4 | **Fixed** | A freeze burn must be mined within the week it saves, or within the last 7 days, and after the user's previous qualifying week. |
+| L-5 | **Fixed** | The public share card is rate limited per IP (60/min). Any other query string redirects to the canonical `?v=` URL, and the version includes the hidden state. |
+| L-6 | **Fixed** | Sync reads only up to the latest block minus 3. |
+| L-7 | **Fixed** | Registration is atomic (`register_group`), so an existing code is never replaced. The creator can rotate the invite code from the invite sheet ("new invite link"), and old links stop working. |
+| L-8 | **Remaining** | Privy is already at its latest version (3.51.3). The 29 production advisories (18 high, 11 moderate) all sit in Privy's, WalletConnect's and wagmi's transitive dependencies. `npm audit fix` without `--force` changes nothing. Trying wagmi 3 *raised* the high count to 20, so it was reverted. |
+| L-9 | **Fixed** | Score and leaderboard reads go through a paged `selectAll`, so there's no 1,000-row cap. |
+| I-1 / I-2 / I-4 / I-6 | Accepted | — |
+| I-3 | Accepted | `x-forwarded-for` is set by Vercel. Signed-in routes are now limited per user as well. |
+| I-5 | **Fixed** | `NEXT_PUBLIC_SUPABASE_ANON_KEY` was removed from `.env.example` and the deploy docs. |
+| I-7 | **Fixed** | See M-10. |
 
 ---
 

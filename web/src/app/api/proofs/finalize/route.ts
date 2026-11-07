@@ -6,7 +6,8 @@ import { ApiError, ok, readJson, route } from "@/server/http";
 import { magicMatches, parseStoragePath, UPLOAD_RULES } from "@/server/media";
 import { checkSession, SESSION_ERRORS, type SessionRow } from "@/server/proofSession";
 import { enforceRateLimit } from "@/server/rateLimit";
-import { check, db, publicUrl } from "@/server/supabase";
+import { signedProofUrls } from "@/server/dareView";
+import { check, db } from "@/server/supabase";
 import { finalizeProofSchema as bodySchema } from "@/server/validation";
 
 const ACCEPTED = 2; // DareState.Accepted
@@ -43,7 +44,18 @@ export const POST = route(async (request: Request) => {
     "loading capture session",
   ) as SessionRow[])[0];
   const verdict = checkSession(session, { dareId: body.dareId, wallet: dare.doer, userId: caller.userId, now: Date.now() });
-  if (verdict !== "ok") throw new ApiError(verdict === "missing" ? 404 : 403, SESSION_ERRORS[verdict]);
+  if (verdict !== "ok") throw new ApiError(verdict === "missing" ? 404 : verdict === "used" ? 409 : 403, SESSION_ERRORS[verdict]);
+
+  // M-4: the files must be the ones issued for THIS capture session (media, and poster for videos)
+  const issued = check(
+    await db().from("uploads").select("path, role, status").eq("session_id", body.sessionId).eq("status", "issued"),
+    "checking uploads",
+  ) as Array<{ path: string; role: string; status: string }>;
+  const issuedFor = (p: string | undefined, role: string) => !!p && issued.some((u) => u.path === p && u.role === role);
+  if (!issuedFor(body.storagePath, "media")) throw new ApiError(400, "That file wasn't uploaded for this capture session.");
+  if (body.kind === "video" && !issuedFor(body.posterPath, "poster")) {
+    throw new ApiError(400, "That poster wasn't uploaded for this capture session.");
+  }
 
   const rule = UPLOAD_RULES.proof;
   const blob = await download(body.storagePath);
@@ -78,6 +90,14 @@ export const POST = route(async (request: Request) => {
   if (existing[0] && Number(existing[0].dare_id) !== Number(body.dareId)) {
     throw new ApiError(409, `This exact file was already used as proof for dare ${existing[0].dare_id}.`);
   }
+
+  // L-3: claim the session atomically, so two finalize calls can never both use it
+  const claimed = check(
+    await db().from("proof_sessions").update({ used_at: new Date().toISOString() }).eq("id", body.sessionId).is("used_at", null).select("id"),
+    "claiming capture session",
+  ) as Array<{ id: string }>;
+  if (!claimed.length) throw new ApiError(409, SESSION_ERRORS.used);
+
   const { error: upsertError } = await db().from("proofs").upsert(
     {
       proof_hash: proofHash,
@@ -98,7 +118,11 @@ export const POST = route(async (request: Request) => {
     console.error("[finalize] upsert:", upsertError.message);
     throw new ApiError(502, "Database error while saving the proof.");
   }
-  await db().from("proof_sessions").update({ used_at: new Date().toISOString() }).eq("id", body.sessionId);
+  await db()
+    .from("uploads")
+    .update({ status: "finalized" })
+    .in("path", [body.storagePath, ...(posterPath ? [posterPath] : [])]);
 
-  return ok({ proofHash, url: publicUrl(rule.bucket, body.storagePath), mime, kind: body.kind, sizeBytes: blob.size });
+  const url = (await signedProofUrls([body.storagePath])).get(body.storagePath) ?? null;
+  return ok({ proofHash, url, mime, kind: body.kind, sizeBytes: blob.size });
 });

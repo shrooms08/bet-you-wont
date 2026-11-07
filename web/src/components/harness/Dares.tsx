@@ -207,10 +207,10 @@ export function DareCard({ byw, dare }: { byw: Byw; dare: DareView }) {
     const publicClient = byw.publicClient;
     try {
       setTx({ status: "working", step: "Uploading proof…" });
-      const storagePath = await uploadFile(byw, "proof", file);
-      setTx({ status: "working", step: "Hashing proof on the server…" });
-      // 3c-2b-1: finalize needs a capture session; the harness sends a JPEG as a "photo"
+      // finalize needs a capture session, and proof uploads belong to it; the harness sends a JPEG "photo"
       const ses = await byw.api<{ sessionId: string }>("/api/proofs/session", { body: { dareId: dare.id } });
+      const storagePath = await uploadFile(byw, "proof", file, "", { sessionId: ses.sessionId, role: "media" });
+      setTx({ status: "working", step: "Hashing proof on the server…" });
       const { proofHash } = await byw.api<{ proofHash: Hex }>("/api/proofs/finalize", {
         body: { dareId: dare.id, storagePath, sessionId: ses.sessionId, kind: "photo", capturedAt: new Date().toISOString() },
       });

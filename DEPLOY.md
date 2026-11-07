@@ -1,6 +1,6 @@
 # Deploying BYW (web) to Vercel
 
-The web app is in `web/`. It runs on **RH Chain mainnet** (chain 4663, `NEXT_PUBLIC_NETWORK=mainnet`); `testnet` still works for local development. Contract ABIs and both deployments (`contracts/deployments/{testnet,mainnet}.json`) are bundled in `web/src/abi/`, so the build never reads `../contracts`. If the contracts or deployments change, run `npm run sync-abi` locally and commit the result.
+The web app is in `web/`. It runs on **Robinhood Chain mainnet** (chain 4663, `NEXT_PUBLIC_NETWORK=mainnet`); `testnet` still works for local development. Contract ABIs and both deployments (`contracts/deployments/{testnet,mainnet}.json`) are bundled in `web/src/abi/`, so the build never reads `../contracts`. If the contracts or deployments change, run `npm run sync-abi` locally and commit the result.
 
 | Mainnet | |
 |---|---|
@@ -39,7 +39,9 @@ Add these in **Project → Settings → Environment Variables**. Never commit re
 | `MAINNET_RPC_QUICKNODE` | **secret** | QuickNode dashboard → your Robinhood Chain mainnet endpoint → HTTP Provider URL. The server's first-choice RPC. The URL contains an API token: server-only, never `NEXT_PUBLIC_`. | `https://<name>.robinhood-mainnet.quiknode.pro/<token>/` |
 | `MAINNET_RPC_GETBLOCK` | **secret** | GetBlock dashboard → Robinhood Chain mainnet endpoint URL. The second-choice RPC (the public RPC is the last fallback). Contains an access token: server-only. | `https://go.getblock.io/<token>` |
 | `NEXT_PUBLIC_APP_URL` | public | Your deployed origin, no trailing slash. It is used for absolute link-preview URLs and printed on share cards. If unset, the app falls back to Vercel's production domain. | `https://bet-you-wont.vercel.app` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public (optional) | Supabase publishable key. The app doesn't read it today: every database call goes through the server. | `sb_publishable_xxxxxxxx…` |
+| `NEXT_PUBLIC_CONTACT_EMAIL` | public | The contact address on /terms, /privacy, /guidelines and the footer (data deletion requests go here). Falls back to `hello@example.com`. | `hello@yourdomain.com` |
+| `ADMIN_WALLETS` | **server-only** | Comma-separated wallet addresses allowed to use `/admin` (review reports, hide/unhide, delete proof files, block profiles, delete a profile's data). Unset = nobody. | `0xabc…,0xdef…` |
+| `CRON_SECRET` | **secret** | Any long random string (e.g. `openssl rand -hex 32`). Vercel Cron sends it as `Authorization: Bearer …` to `/api/cron/cleanup` (daily, see `vercel.json`); without it the cleanup refuses to run. | 64 hex chars |
 
 Server RPC order on mainnet: `MAINNET_RPC_QUICKNODE` → `MAINNET_RPC_GETBLOCK` → `https://rpc.mainnet.chain.robinhood.com`. Either private one can be left unset. The browser (wallet, Privy) always uses the public RPC. Error logs strip both private URLs.
 

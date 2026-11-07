@@ -29,6 +29,13 @@ export function storagePathFor(kind: UploadKind, wallet: string, uuid: string, m
   return `${kind}/${wallet.toLowerCase()}/${uuid}.${ext}`;
 }
 
+/** The storage path inside a public avatar URL (".../object/public/avatars/<path>"), or null. */
+export function avatarPathFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = /\/object\/public\/avatars\/(avatar\/0x[0-9a-f]{40}\/[0-9a-f-]{36}\.[a-z0-9]{3,4})(?:\?.*)?$/.exec(url);
+  return m ? m[1] : null;
+}
+
 const PATH_RE = /^(avatar|proof)\/(0x[0-9a-f]{40})\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.([a-z0-9]{3,4})$/;
 
 /** Parses a storage path we issued. Returns null for anything else (including path tricks like "..'). */

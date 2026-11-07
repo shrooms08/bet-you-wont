@@ -23,7 +23,8 @@ export async function previewForDare(dareId: number): Promise<Preview> {
       const p = (await profilesByWallet([dare.doer_wallet])).get(dare.doer_wallet.toLowerCase());
       doerName = p?.username ? `@${p.username}` : null;
     }
-    return darePreview({ ...dare, doerName }, group);
+    // text hidden after reports never appears in link previews
+    return darePreview({ ...dare, text: dare.text_hidden_at ? null : dare.text, doerName }, group);
   } catch (err) {
     console.error("[preview]", errLine(err));
     return darePreview(null, null);

@@ -12,7 +12,7 @@ import { ApiError } from "./http";
  * It is accepted only if Privy lists it as linked to this user. With no header, a user with one
  * wallet acts as it, and a user with several acts as their embedded wallet.
  */
-export type Caller = { userId: string; wallets: Address[]; wallet: Address };
+export type Caller = { userId: string; wallets: Address[]; wallet: Address; /** Privy account creation (ms), if known */ createdAt: number | null };
 
 let privy: PrivyClient | null = null;
 function privyClient(): PrivyClient {
@@ -20,7 +20,7 @@ function privyClient(): PrivyClient {
   return privy;
 }
 
-type LinkedWallets = { all: Address[]; embedded: Address | null; at: number };
+type LinkedWallets = { all: Address[]; embedded: Address | null; createdAt: number | null; at: number };
 const linkedCache = new Map<string, LinkedWallets>();
 const LINKED_TTL_MS = 30_000;
 
@@ -42,7 +42,9 @@ async function linkedWallets(userId: string): Promise<LinkedWallets> {
     all.push(addr);
     if ("connector_type" in a && a.connector_type === "embedded") embedded ??= addr;
   }
-  const entry = { all, embedded, at: Date.now() };
+  // Privy sends created_at in seconds
+  const created = Number((user as { created_at?: number }).created_at);
+  const entry = { all, embedded, createdAt: Number.isFinite(created) && created > 0 ? created * 1000 : null, at: Date.now() };
   linkedCache.set(userId, entry);
   return entry;
 }
@@ -78,7 +80,7 @@ export async function requireCaller(request: Request, requested?: string | null)
   } else {
     throw new ApiError(400, "You have several wallets: send X-Wallet-Address to say which one.");
   }
-  return { userId, wallets: linked.all, wallet };
+  return { userId, wallets: linked.all, wallet, createdAt: linked.createdAt };
 }
 
 /** True if `address` is one of the caller's linked wallets. */

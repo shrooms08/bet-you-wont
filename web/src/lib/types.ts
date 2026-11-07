@@ -31,9 +31,11 @@ export type Stats = {
 export type Me = {
   wallet: string;
   wallets: string[];
-  profile: (PublicProfile & { ageConfirmed?: boolean }) | null;
+  profile: (PublicProfile & { ageConfirmed?: boolean; blocked?: boolean }) | null;
   groups: MyGroup[];
   stats?: Stats;
+  /** your wallet is in ADMIN_WALLETS: /admin works for you */
+  isAdmin?: boolean;
 };
 
 export type ProofTile = { dareId: number; state: string; outcome: string; kind: "photo" | "video" | null; thumb: string | null };
@@ -81,6 +83,11 @@ export type DareView = {
   proofAt?: string | null;
   settledAt?: string | null;
   activityAt?: string | null;
+  proofHash?: string | null;
+  /** dare text hidden after reports (or by an admin), or because you reported it */
+  textHidden?: boolean;
+  /** proof media hidden after reports (or by an admin), or because you reported it */
+  mediaHidden?: boolean;
   /** v2: group member count when the dare was created (only those members can vote) */
   voterSnapshot?: number | null;
   canAccept: boolean;
@@ -136,3 +143,24 @@ export type DareDetail = {
 
 /** POST /api/proofs/session */
 export type ProofSession = { sessionId: string; code: string; issuedAt: string; expiresAt: string };
+
+export type AdminItem = {
+  dareId: number;
+  groupId: number;
+  groupName: string | null;
+  isPublic: boolean;
+  text: string | null;
+  state: string;
+  outcome: string;
+  creator: PublicProfile | null;
+  doer: PublicProfile | null;
+  proofUrl: string | null;
+  posterUrl: string | null;
+  proofKind: "photo" | "video" | null;
+  hasProof: boolean;
+  textHidden: { at: string; by: string | null } | null;
+  mediaHidden: { at: string; by: string | null } | null;
+  latestReport: string | null;
+  reports: Array<{ id: string; target: string; reason: string; details: string | null; reporter: PublicProfile | null; at: string }>;
+};
+export type AdminData = { items: AdminItem[]; blocked: Array<{ wallet: string; username: string; blockedAt: string }> };

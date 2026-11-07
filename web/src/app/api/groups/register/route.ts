@@ -7,7 +7,7 @@ import { newInviteCode } from "@/server/hashing";
 import { ApiError, ok, readJson, route } from "@/server/http";
 import type { GroupRow } from "@/server/queries";
 import { enforceRateLimit } from "@/server/rateLimit";
-import { check, db } from "@/server/supabase";
+import { db } from "@/server/supabase";
 import { syncAfterTx } from "@/server/sync";
 import { INVITE_ALPHABET, registerGroupSchema } from "@/server/validation";
 
@@ -39,35 +39,24 @@ export const POST = route(async (request: Request) => {
   if (!ownsWallet(caller, event.args.creator)) throw new ApiError(403, "Only the group's creator can name it.");
 
   const groupId = event.args.groupId;
-  const existing = (check(
-    await db().from("groups").select("*").eq("id", groupId.toString()).limit(1),
-    "loading group",
-  ) as GroupRow[])[0];
-
+  // L-7: one atomic statement (public.register_group). An existing invite code is never replaced,
+  // so concurrent registrations all keep the first code. Retry only on a fresh-code collision.
   let saved: GroupRow | null = null;
   for (let attempt = 0; attempt < 5 && !saved; attempt++) {
-    const inviteCode = existing?.invite_code ?? newInviteCode(INVITE_ALPHABET);
-    const { data, error } = await db()
-      .from("groups")
-      .upsert(
-        {
-          id: groupId.toString(),
-          name: body.name,
-          is_public: event.args.isPublic,
-          creator_wallet: event.args.creator.toLowerCase(),
-          created_tx: body.txHash,
-          invite_code: inviteCode,
-        },
-        { onConflict: "id" },
-      )
-      .select("*")
-      .single();
-    if (error?.code === "23505" && !existing?.invite_code) continue; // invite code collision: try another
+    const { data, error } = await db().rpc("register_group", {
+      p_id: groupId.toString(),
+      p_name: body.name,
+      p_is_public: event.args.isPublic,
+      p_creator: event.args.creator.toLowerCase(),
+      p_tx: body.txHash,
+      p_code: newInviteCode(INVITE_ALPHABET),
+    });
+    if (error?.code === "23505") continue; // invite code collision: try another
     if (error) {
-      console.error("[register] upsert:", error.message);
+      console.error("[register] rpc:", error.message);
       throw new ApiError(502, "Database error while saving the group.");
     }
-    saved = data as GroupRow;
+    saved = ((Array.isArray(data) ? data[0] : data) as GroupRow | undefined) ?? null;
   }
   if (!saved) throw new ApiError(502, "Could not allocate an invite code. Try again.");
 

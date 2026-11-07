@@ -1,5 +1,5 @@
 // Fixture data for ?mock=1 (dev only). Shapes match the real API responses.
-import type { DareDetail, DareView, Feed, FeedItem, FeedPage, HistoryItem, Home, InvitePreview, Leaderboard, Me, MyGroup, PublicGroup, PublicProfile, Stats, UserPage } from "./types";
+import type { AdminData, DareDetail, DareView, Feed, FeedItem, FeedPage, HistoryItem, Home, InvitePreview, Leaderboard, Me, MyGroup, PublicGroup, PublicProfile, Stats, UserPage } from "./types";
 
 const WEI = BigInt("1000000000000000000");
 const wif = (n: number) => (BigInt(n) * WEI).toString();
@@ -209,7 +209,7 @@ const D_MINE_OPEN = dare({
 const LAGOS_MEMBERS = [TOBI, ADA, KEMI, DAYO, ZEE];
 
 const GROUPS: MyGroup[] = [
-  { id: 7, name: "lagos crew", isPublic: false, isCreator: false, inviteCode: "k7m2p9xq4h", memberCount: 5, liveDareCount: 3, members: LAGOS_MEMBERS },
+  { id: 7, name: "lagos crew", isPublic: false, isCreator: true, inviteCode: "k7m2p9xq4h", memberCount: 5, liveDareCount: 3, members: LAGOS_MEMBERS },
   { id: 1, name: null, isPublic: true, isCreator: false, inviteCode: null, memberCount: 318, liveDareCount: 16, members: [ADA, TOBI, DAYO, KEMI] },
 ];
 
@@ -231,6 +231,7 @@ export function mockMe(mode: "full" | "empty" | "external", ageConfirmed = true)
     wallet: MOCK_WALLET,
     wallets: [MOCK_WALLET],
     profile: { ...ZEE, ageConfirmed },
+    isAdmin: true,
     groups: mode === "empty" ? [] : GROUPS,
     stats: mode === "empty" ? { ...MOCK_STATS, score: 0, currentStreak: 0, bestStreak: 0, daresDone: 0, daresDared: 0, wifWon: "0", wifBurned: "0" } : MOCK_STATS,
   };
@@ -256,7 +257,7 @@ export function mockFeed(id: number, mode: "full" | "empty" | "external"): Feed 
         }));
   return {
     viewer: MOCK_WALLET,
-    group: { id: g.id, name: g.name, isPublic: g.isPublic, creator: ADA, inviteCode: g.inviteCode ?? "k7m2p9xq4h" },
+    group: { id: g.id, name: g.name, isPublic: g.isPublic, creator: g.isCreator ? ZEE : ADA, inviteCode: g.inviteCode ?? "k7m2p9xq4h" },
     members: (g.members ?? LAGOS_MEMBERS).map((m) => ({ ...m, joinedAt: agoMin(60 * 24 * 10) })),
     stats: { memberCount: g.memberCount, openDares: 3, liveDares: 5, paidOut: wif(9500), refunded: wif(14500), burned: wif(1000) },
     dares,
@@ -352,3 +353,32 @@ export const MOCK_HISTORY: HistoryItem[] = [
   { type: "dare", dareId: 35, text: D_FAILED.text, role: "creator", outcome: "Failed", kind: "refunded", amount: wif(4500), burned: wif(500), tx: `0x${"ef".repeat(32)}`, at: agoMin(60 * 50) },
   { type: "dare", dareId: 33, text: "eat a raw onion like an apple", role: "creator", outcome: "Passed", kind: "lost", amount: wif(1000), burned: wif(50), tx: null, at: agoMin(60 * 120) },
 ];
+
+/** /admin in mock mode: one reported public dare (media auto-hidden), one blocked profile. */
+export const MOCK_ADMIN: AdminData = {
+  items: [
+    {
+      dareId: 45,
+      groupId: 1,
+      groupName: null,
+      isPublic: true,
+      text: "sing the national anthem on a crowded train",
+      state: "Settled",
+      outcome: "Passed",
+      creator: ADA,
+      doer: DAYO,
+      proofUrl: "/onboarding/o1-paid.png",
+      posterUrl: null,
+      proofKind: "photo",
+      hasProof: true,
+      textHidden: null,
+      mediaHidden: { at: agoMin(30), by: "auto" },
+      latestReport: agoMin(30),
+      reports: [
+        { id: "r1", target: "proof", reason: "no_consent", details: "the people behind didn't agree to this", reporter: TOBI, at: agoMin(30) },
+        { id: "r2", target: "proof", reason: "harassment", details: null, reporter: ADA, at: agoMin(90) },
+      ],
+    },
+  ],
+  blocked: [{ wallet: "0x00000000000000000000000000000000000000b1", username: "spammer_01", blockedAt: agoMin(600) }],
+};

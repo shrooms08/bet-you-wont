@@ -1,6 +1,6 @@
 # BYW Phase 3c-1: Supabase backend, API routes, chain sync, test harness
 
-Built on 2026-11-06. **Testnet only** (RH Chain testnet, 46630). Mainnet was not touched, nothing was deployed, and I sent no transactions in this phase (every chain call was a read).
+Built on 2026-11-06. **Testnet only** (Robinhood Chain testnet, 46630). Mainnet was not touched, nothing was deployed, and I sent no transactions in this phase (every chain call was a read).
 
 Secrets were loaded inside commands only and never printed. The client bundle (`.next/static`) contains 0 secret values and 0 secret variable names. Before the commit, the staged diff was scanned for all 8 secret values from `web/.env.local` and `contracts/.env`: 0 matches. No `.env*` file was staged.
 
@@ -131,7 +131,7 @@ Big numbers (`amount`, `payout`, `burned`) are read as `::text`. PostgREST would
 
 - **GeckoTerminal** (`networks/robinhood/token_price/0x5173…4773`) answered: **$0.001267** for mainnet $wif. This is the source in use.
 - **DexScreener** also answered when called directly: $0.001271 from the Uniswap v4 WIF/ETH pair on Robinhood Chain.
-- The fallback order (GeckoTerminal, then the most liquid Robinhood pair on DexScreener, then `usd: null`) is unit-tested with a mocked `fetch`.
+- The fallback order (GeckoTerminal, then the most liquid Robinhood Chain pair on DexScreener, then `usd: null`) is unit-tested with a mocked `fetch`.
 - On testnet, mWIF amounts are shown with the mainnet $wif price, as the spec asks.
 
 ## Test results
@@ -157,7 +157,7 @@ Big numbers (`amount`, `payout`, `burned`) are read as `::text`. PostgREST would
   - `/api/invite/<unknown>` 404.
   - Every auth route returns 401 without a token or with a bad token.
   - `GET /api/permit` 405.
-  - `/` and `/i/<code>` return 200, and "robinhood" appears 0 times on `/`.
+  - `/` and `/i/<code>` return 200, and the brand check finds no forbidden network names on `/`.
 
 Not tested (needs you): any logged-in route with a real Privy token, and the browser transaction flows below.
 

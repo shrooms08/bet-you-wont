@@ -1,7 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { useId } from "react";
-import { AGE_LINE } from "@/lib/ageGate";
 import { Headline } from "../ui/Headline";
 
 /** The required 18+ checkbox (a real checkbox with a big tap target). */
@@ -10,7 +10,17 @@ export function AgeCheckbox({ checked, onChange }: { checked: boolean; onChange:
   return (
     <label htmlFor={id} className="raised flex min-h-14 cursor-pointer items-center gap-3 px-4 py-3">
       <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-6 w-6 shrink-0 accent-[var(--byw-primary)]" />
-      <span className="text-[16px] font-extrabold leading-snug">{AGE_LINE}</span>
+      {/* AGE_LINE in lib/ageGate.ts, with the two documents linked (they open in a new tab) */}
+      <span className="text-[16px] font-extrabold leading-snug">
+        i&apos;m 18 or older and i agree to the{" "}
+        <Link href="/terms" target="_blank" className="underline underline-offset-2">
+          terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/guidelines" target="_blank" className="underline underline-offset-2">
+          guidelines
+        </Link>
+      </span>
     </label>
   );
 }

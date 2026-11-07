@@ -1,6 +1,7 @@
 import "server-only";
 import { computeScores, type ScoreDare, type ScoreFreeze, type ScoreVote } from "./score";
-import { check, db } from "./supabase";
+import { selectAll } from "./selectAll";
+import { db } from "./supabase";
 
 /**
  * Loads everything scoring needs from the synced tables and computes scores. Small-scale
@@ -11,13 +12,14 @@ let memo: { at: number; value: ReturnType<typeof computeScores> } | null = null;
 
 export async function scoreSnapshot(maxAgeMs = 5000) {
   if (memo && Date.now() - memo.at < maxAgeMs) return memo.value;
-  const [daresRes, votesRes, freezesRes] = await Promise.all([
-    db().from("dares").select("id, group_id, creator_wallet, doer_wallet, amount::text, state, outcome, payout::text, burned::text, settled_at"),
-    db().from("votes").select("dare_id, voter_wallet, created_at"),
-    db().from("streak_freezes").select("wallet_address, week, amount::text"),
-  ]);
+  // L-9: paged reads, so scores never silently stop at PostgREST's 1,000-row cap
   type D = { id: number; group_id: number; creator_wallet: string; doer_wallet: string | null; amount: string; state: string; outcome: string; payout: string | null; burned: string | null; settled_at: string | null };
-  const dares: ScoreDare[] = (check(daresRes, "loading dares for scores") as unknown as D[]).map((d) => ({
+  const [daresAll, votesAll, freezesAll] = await Promise.all([
+    selectAll<D>("dares", "id, group_id, creator_wallet, doer_wallet, amount::text, state, outcome, payout::text, burned::text, settled_at", "id"),
+    selectAll<{ dare_id: number; voter_wallet: string; created_at: string | null }>("votes", "dare_id, voter_wallet, created_at", "dare_id,voter_wallet"),
+    selectAll<{ wallet_address: string; week: string; amount: string }>("streak_freezes", "wallet_address, week, amount::text", "tx_hash"),
+  ]);
+  const dares: ScoreDare[] = daresAll.map((d) => ({
     id: Number(d.id),
     groupId: Number(d.group_id),
     creator: d.creator_wallet,
@@ -29,12 +31,12 @@ export async function scoreSnapshot(maxAgeMs = 5000) {
     burned: d.burned ? BigInt(d.burned) : null,
     settledAt: d.settled_at,
   }));
-  const votes: ScoreVote[] = (check(votesRes, "loading votes for scores") as Array<{ dare_id: number; voter_wallet: string; created_at: string | null }>).map((v) => ({
+  const votes: ScoreVote[] = votesAll.map((v) => ({
     dareId: Number(v.dare_id),
     voter: v.voter_wallet,
     createdAt: v.created_at,
   }));
-  const freezes: ScoreFreeze[] = (check(freezesRes, "loading freezes") as unknown as Array<{ wallet_address: string; week: string; amount: string }>).map((f) => ({
+  const freezes: ScoreFreeze[] = freezesAll.map((f) => ({
     wallet: f.wallet_address,
     week: f.week,
     amount: BigInt(f.amount),

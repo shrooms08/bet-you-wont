@@ -1,7 +1,7 @@
 import { RING_COLORS } from "@/lib/theme";
 import { requireCaller } from "@/server/auth";
 import { ApiError, ok, readJson, route } from "@/server/http";
-import { magicMatches, parseStoragePath, UPLOAD_RULES } from "@/server/media";
+import { avatarPathFromUrl, magicMatches, parseStoragePath, UPLOAD_RULES } from "@/server/media";
 import type { ProfileRow } from "@/server/queries";
 import { enforceRateLimit } from "@/server/rateLimit";
 import { check, db, publicUrl } from "@/server/supabase";
@@ -64,5 +64,14 @@ export const POST = route(async (request: Request) => {
     throw new ApiError(502, "Database error while saving your profile.");
   }
   const p = data as ProfileRow;
+  if (avatarUrl && body.avatarPath) {
+    // M-4: the old avatar file is no longer referenced: delete it
+    const old = avatarPathFromUrl(existing[0]?.avatar_url);
+    if (old && old !== body.avatarPath) {
+      const { error: rmError } = await db().storage.from(UPLOAD_RULES.avatar.bucket).remove([old]);
+      if (rmError) console.error("[profile] removing old avatar:", rmError.message);
+    }
+    await db().from("uploads").update({ status: "finalized" }).eq("path", body.avatarPath);
+  }
   return ok({ profile: { wallet: p.wallet_address, username: p.username, avatarUrl: p.avatar_url, ringColor: p.ring_color, ageConfirmed: !!p.age_confirmed_at } });
 });

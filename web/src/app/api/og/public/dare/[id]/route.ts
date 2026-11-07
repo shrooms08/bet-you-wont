@@ -1,5 +1,6 @@
-import { buildDareViews, proofsByHash } from "@/server/dareView";
-import { ApiError, getRoute } from "@/server/http";
+import { buildDareViews, proofsForDares } from "@/server/dareView";
+import { ApiError, clientIp, getRoute } from "@/server/http";
+import { enforceRateLimit } from "@/server/rateLimit";
 import { cardVersion, publicCardAllowed } from "@/server/linkPreview";
 import { loadDareAndGroup } from "@/server/previewData";
 import { profilesByWallet } from "@/server/queries";
@@ -13,15 +14,24 @@ import { idSchema } from "@/server/validation";
 export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id: string }> }) => {
   const url = new URL(request.url);
   const dareId = Number(idSchema.parse((await ctx.params).id));
+  await enforceRateLimit(`og-public:${clientIp(request)}`, 60, 60, "Too many share cards."); // L-5
   const found = await loadDareAndGroup(dareId);
   if (!found || !publicCardAllowed(found.group)) throw new ApiError(404, "No public dare with that number.");
   const { dare } = found;
 
-  const [profiles, proofs] = await Promise.all([profilesByWallet([dare.creator_wallet, dare.target_wallet, dare.doer_wallet]), proofsByHash([dare.proof_hash])]);
+  // L-5: one cache key per dare state. Any other ?v= (or extra params) redirects to the canonical
+  // URL, so random query strings can't force fresh renders past the edge cache.
+  const version = cardVersion(dare);
+  const v = url.searchParams.get("v");
+  if ((v !== null && v !== version) || [...url.searchParams.keys()].some((k) => k !== "v")) {
+    return Response.redirect(new URL(`/api/og/public/dare/${dareId}?v=${encodeURIComponent(version)}`, url.origin), 302);
+  }
+
+  const [profiles, proofs] = await Promise.all([profilesByWallet([dare.creator_wallet, dare.target_wallet, dare.doer_wallet]), proofsForDares([dare])]);
   const d = buildDareViews({ dares: [dare], viewer: "", joinIndexByGroup: new Map(), voted: new Set(), profiles, proofs, readOnlyGroups: new Set([Number(dare.group_id)]) })[0];
   const png = await renderShareCard(d, process.env.NEXT_PUBLIC_APP_URL || url.origin);
 
-  const current = url.searchParams.get("v") === cardVersion(dare);
+  const current = v === version;
   return new Response(png, {
     headers: {
       "Content-Type": "image/png",

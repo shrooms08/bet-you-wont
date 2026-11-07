@@ -5,7 +5,7 @@ import { computeMetaHash, newSalt } from "@/server/hashing";
 import { ApiError, ok, readJson, route } from "@/server/http";
 import { isUnsafeDare, UNSAFE_DARE_MESSAGE } from "@/server/moderation";
 import { enforceRateLimit } from "@/server/rateLimit";
-import { db } from "@/server/supabase";
+import { check, db } from "@/server/supabase";
 import { draftSchema } from "@/server/validation";
 
 // POST /api/dares/draft {groupId, text}: auth, members only. Stores the dare text and returns the
@@ -17,6 +17,8 @@ export const POST = route(async (request: Request) => {
   await enforceRateLimit(`draft:${caller.userId}`, 30, 3600, "Too many dare drafts.");
 
   if (isUnsafeDare(body.text)) throw new ApiError(400, UNSAFE_DARE_MESSAGE);
+  const profile = (check(await db().from("profiles").select("blocked_at").eq("privy_user_id", caller.userId).limit(1), "loading profile") as Array<{ blocked_at: string | null }>)[0];
+  if (profile?.blocked_at) throw new ApiError(403, "Your profile can't create dares.");
   if (!(await isMemberOnchain(body.groupId, caller.wallet))) {
     throw new ApiError(403, `This wallet is not a member of group ${body.groupId}.`);
   }

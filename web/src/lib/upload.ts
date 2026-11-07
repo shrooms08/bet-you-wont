@@ -6,10 +6,13 @@ import type { Byw } from "@/hooks/useByw";
  * Asks our API for a signed upload URL, then PUTs the bytes straight to Supabase storage.
  * Returns the storage path to hand back to the API (profile avatarPath / proofs finalize).
  */
-export async function uploadFile(byw: Byw, kind: "avatar" | "proof", file: Blob, name = ""): Promise<string> {
+/** Proof uploads belong to a capture session (the media file, or a video's poster). */
+export type UploadSession = { sessionId: string; role: "media" | "poster" };
+
+export async function uploadFile(byw: Byw, kind: "avatar" | "proof", file: Blob, name = "", session?: UploadSession): Promise<string> {
   const mime = file.type || (name.toLowerCase().endsWith(".heic") ? "image/heic" : "");
   const { signedUrl, path } = await byw.api<{ signedUrl: string; path: string }>("/api/upload-url", {
-    body: { kind, mime, size: file.size },
+    body: { kind, mime, size: file.size, ...(session ?? {}) },
   });
   const res = await fetch(signedUrl, {
     method: "PUT",
@@ -22,9 +25,16 @@ export async function uploadFile(byw: Byw, kind: "avatar" | "proof", file: Blob,
 }
 
 /** Same as uploadFile, but reports progress 0..1 (XHR: fetch can't report upload progress). */
-export async function uploadWithProgress(byw: Byw, kind: "avatar" | "proof", blob: Blob, mime: string, onProgress?: (f: number) => void): Promise<string> {
+export async function uploadWithProgress(
+  byw: Byw,
+  kind: "avatar" | "proof",
+  blob: Blob,
+  mime: string,
+  onProgress?: (f: number) => void,
+  session?: UploadSession,
+): Promise<string> {
   const { signedUrl, path } = await byw.api<{ signedUrl: string; path: string }>("/api/upload-url", {
-    body: { kind, mime, size: blob.size },
+    body: { kind, mime, size: blob.size, ...(session ?? {}) },
   });
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();

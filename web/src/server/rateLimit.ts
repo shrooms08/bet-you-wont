@@ -42,6 +42,15 @@ export async function rateLimit(
   return { allowed: Boolean(row.allowed), hits: Number(row.hits), resetAt: Date.parse(row.reset_at) };
 }
 
+/**
+ * Limits for routes that can trigger a sync or are polled (M-6). Signed-in routes are keyed per
+ * user (people on one venue Wi-Fi share an IP); every route also has a per-IP ceiling.
+ */
+export async function enforceRouteLimit(name: string, ip: string, userId: string | null, perUserPerMin = 30, perIpPerMin = 120) {
+  if (userId) await enforceRateLimit(`${name}:u:${userId}`, perUserPerMin, 60, "Slow down a little.");
+  await enforceRateLimit(`${name}:ip:${ip}`, userId ? perIpPerMin : perUserPerMin, 60, "Slow down a little.");
+}
+
 /** Throws 429 when over the limit. */
 export async function enforceRateLimit(
   key: string,

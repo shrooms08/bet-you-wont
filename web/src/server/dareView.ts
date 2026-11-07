@@ -1,7 +1,9 @@
 import "server-only";
 import { dareActions } from "./dareRules";
+import { hiddenFor } from "./moderationRules";
+import { matchProofs, type DareProofKey, type ProofRow } from "./proofMatch";
 import { toPublic, type DareRow, type ProfileRow } from "./queries";
-import { check, db, publicUrl } from "./supabase";
+import { check, db } from "./supabase";
 
 export type ProofInfo = {
   url: string;
@@ -12,37 +14,83 @@ export type ProofInfo = {
   durationMs: number | null;
 };
 
-/** Proof file (public URL, mime, kind, poster, capture time) for each proof hash. */
-export async function proofsByHash(hashes: Array<string | null>) {
-  const list = [...new Set(hashes.filter((h): h is string => !!h))];
-  const map = new Map<string, ProofInfo>();
-  if (!list.length) return map;
+/** Signed URLs live 1 hour; reuse one for up to 50 minutes so feeds polling every 20 s don't
+ *  re-download the same media (each new URL is a new cache key in the browser). Per instance. */
+const SIGNED_TTL_S = 3600;
+const SIGNED_REUSE_MS = 50 * 60 * 1000;
+const signedCache = new Map<string, { url: string; at: number }>();
+
+/** Short-lived signed URLs for private proof objects (M-1). Missing objects map to nothing. */
+export async function signedProofUrls(paths: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const now = Date.now();
+  const need: string[] = [];
+  for (const p of [...new Set(paths)]) {
+    const hit = signedCache.get(p);
+    if (hit && now - hit.at < SIGNED_REUSE_MS) out.set(p, hit.url);
+    else need.push(p);
+  }
+  if (need.length) {
+    const { data, error } = await db().storage.from("proofs").createSignedUrls(need, SIGNED_TTL_S);
+    if (error) console.error("[proofs] signing:", error.message);
+    for (const r of data ?? []) {
+      if (!r.signedUrl || r.error || !r.path) continue;
+      out.set(r.path, r.signedUrl);
+      signedCache.set(r.path, { url: r.signedUrl, at: now });
+    }
+    if (signedCache.size > 2000) signedCache.clear();
+  }
+  return out;
+}
+
+/** Forget signed URLs for files that were just hidden or deleted. */
+export function dropSignedUrls(paths: Array<string | null | undefined>) {
+  for (const p of paths) if (p) signedCache.delete(p);
+}
+
+/**
+ * Proof media per dare id, ONLY where the proof row was finalized for that exact dare by its doer
+ * (H-2). URLs are short-lived signed URLs (M-1); callers must already have checked that the viewer
+ * may see these dares.
+ */
+export async function proofsForDares(dares: DareProofKey[]): Promise<Map<number, ProofInfo>> {
+  const map = new Map<number, ProofInfo>();
+  const withProof = dares.filter((d) => d.proof_hash && d.doer_wallet);
+  if (!withProof.length) return map;
   const rows = check(
     await db()
       .from("proofs")
-      .select("proof_hash, storage_path, mime, kind, poster_path, captured_at, duration_ms")
-      .in("proof_hash", list),
+      .select("proof_hash, dare_id, uploader_wallet, storage_path, mime, kind, poster_path, captured_at, duration_ms, deleted_at")
+      .in("dare_id", [...new Set(withProof.map((d) => String(d.id)))]),
     "loading proofs",
-  ) as Array<{
-    proof_hash: string;
-    storage_path: string;
-    mime: string | null;
-    kind: "photo" | "video" | null;
-    poster_path: string | null;
-    captured_at: string | null;
-    duration_ms: number | null;
-  }>;
-  for (const r of rows) {
-    map.set(r.proof_hash, {
-      url: publicUrl("proofs", r.storage_path),
+  ) as ProofRow[];
+  const matched = matchProofs(withProof, rows);
+  const urls = await signedProofUrls([...matched.values()].flatMap((r) => [r.storage_path!, ...(r.poster_path ? [r.poster_path] : [])]));
+  for (const [dareId, r] of matched) {
+    const url = urls.get(r.storage_path!);
+    if (!url) continue; // object gone: treat as missing
+    map.set(dareId, {
+      url,
       mime: r.mime,
       kind: r.kind ?? (r.mime?.startsWith("video/") ? "video" : "photo"),
-      posterUrl: r.poster_path ? publicUrl("proofs", r.poster_path) : null,
+      posterUrl: r.poster_path ? (urls.get(r.poster_path) ?? null) : null,
       capturedAt: r.captured_at,
       durationMs: r.duration_ms,
     });
   }
   return map;
+}
+
+/** "<dareId>:dare" / "<dareId>:proof" keys this wallet reported (hidden for them right away). */
+export async function reportedBy(wallet: string, dareIds: number[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!wallet || !dareIds.length) return out;
+  const rows = check(
+    await db().from("reports").select("dare_id, target").eq("reporter_wallet", wallet.toLowerCase()).in("dare_id", dareIds),
+    "loading your reports",
+  ) as Array<{ dare_id: number; target: string }>;
+  for (const r of rows) out.add(`${Number(r.dare_id)}:${r.target}`);
+  return out;
 }
 
 /** 🔥 counts per dare and which of them this wallet reacted to. */
@@ -82,7 +130,10 @@ export type DareViewInput = {
   joinIndexByGroup: Map<number, number | null>;
   voted: Set<number>;
   profiles: Map<string, ProfileRow>;
-  proofs: Map<string, ProofInfo>;
+  /** proof media by dare id (from proofsForDares) */
+  proofs: Map<number, ProofInfo>;
+  /** keys "<dareId>:dare|proof" the viewer reported: hidden for them immediately */
+  viewerReports?: Set<string>;
   groupNames?: Map<number, string | null>;
   reactions?: { counts: Map<number, number>; mine: Set<number> };
   /** groups where the viewer is NOT a member: their action flags are all false (read-only) */
@@ -103,12 +154,15 @@ export function buildDareViews(input: DareViewInput) {
       },
       now,
     );
-    const proof = d.proof_hash ? input.proofs.get(d.proof_hash) : undefined;
+    const hidden = hiddenFor(d, input.viewerReports ?? new Set());
+    const proof = hidden.mediaHidden ? undefined : input.proofs.get(Number(d.id));
     return {
       id: Number(d.id),
       groupId: Number(d.group_id),
       groupName: input.groupNames?.get(Number(d.group_id)) ?? undefined,
-      text: d.text,
+      text: hidden.textHidden ? null : d.text,
+      textHidden: hidden.textHidden,
+      mediaHidden: hidden.mediaHidden && !!d.proof_hash,
       creator: person(d.creator_wallet),
       target: person(d.target_wallet),
       doer: person(d.doer_wallet),

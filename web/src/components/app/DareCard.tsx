@@ -11,6 +11,7 @@ import { Money, WIF_LABEL } from "../ui/Money";
 import { PillButton, PillLink } from "../ui/PillButton";
 import { StatusTag, tagFor } from "../ui/StatusTag";
 import { DareText } from "./DareText";
+import { HiddenNote } from "./Report";
 
 function durationLabel(seconds: number) {
   if (seconds >= 86400 && seconds % 86400 === 0) return `${seconds / 86400}d`;
@@ -44,7 +45,14 @@ export function dareNote(d: DareView, now = Date.now()): string {
 }
 
 function ProofMedia({ d }: { d: DareView }) {
-  if (!d.proofUrl) return null;
+  if (!d.proofUrl) {
+    if (!d.mediaHidden) return null;
+    return (
+      <div className="relative -mx-2 -mt-2 mb-4 grid min-h-[140px] place-items-center rounded-[26px] border-[3px] border-line bg-inset p-6 text-center">
+        <HiddenNote what="proof" />
+      </div>
+    );
+  }
   const alt = `proof posted by ${handle(d.doer)}`;
   return (
     <div className="relative -mx-2 -mt-2 mb-4 overflow-hidden rounded-[26px] border-[3px] border-line bg-inset">
@@ -102,13 +110,13 @@ export function DareCard({ d, actions, now }: { d: DareView; actions: Actions; n
   return (
     <article id={`dare-${d.id}`} className="raised scroll-mt-6 p-4 tab:p-5" aria-label={`dare ${d.id}`}>
       <ProofMedia d={d} />
-      {!d.proofUrl && (
+      {!d.proofUrl && !d.mediaHidden && (
         <div className="mb-3 flex items-center justify-between gap-2">
           <StatusTag kind={kind} />
           {ago && <span className="text-[13px] text-muted">{ago}</span>}
         </div>
       )}
-      <DareText text={d.text} />
+      {d.textHidden ? <HiddenNote what="text" /> : <DareText text={d.text} />}
       <div className="mt-4 flex flex-wrap items-end justify-between gap-x-3 gap-y-3">
         <div className="flex items-end gap-2">
           <AvatarChip person={d.creator} />

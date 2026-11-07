@@ -1,7 +1,9 @@
 import { requireCaller } from "@/server/auth";
 import { crewAccess, quickSync } from "@/server/access";
-import { buildDareViews, proofsByHash, reactionsFor, votedDareIds } from "@/server/dareView";
-import { ApiError, getRoute, ok } from "@/server/http";
+import { dareCountOnchain } from "@/server/chain";
+import { buildDareViews, proofsForDares, reactionsFor, reportedBy, votedDareIds } from "@/server/dareView";
+import { ApiError, clientIp, getRoute, ok } from "@/server/http";
+import { enforceRouteLimit } from "@/server/rateLimit";
 import { DARE_COLUMNS, profilesByWallet, toPublic, type DareRow } from "@/server/queries";
 import { check, db } from "@/server/supabase";
 import { sync } from "@/server/sync";
@@ -18,12 +20,18 @@ async function loadDare(id: string) {
 export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id: string }> }) => {
   const caller = await requireCaller(request);
   const dareId = idSchema.parse((await ctx.params).id).toString();
+  await enforceRouteLimit("dare", clientIp(request), caller.userId);
   await quickSync();
 
   let dare = await loadDare(dareId);
   if (!dare) {
-    await sync({ force: true, waitMs: 8_000 }).catch(() => null); // brand-new dare not synced yet
-    dare = await loadDare(dareId);
+    // M-6: never force a sync for an id. Only a dare that exists onchain (a brand-new one not synced
+    // yet) waits for a normal, throttled sync; unknown ids answer 404 straight away.
+    const count = await dareCountOnchain().catch(() => BigInt(0));
+    if (BigInt(dareId) <= count) {
+      await sync({ waitMs: 4_000 }).catch(() => null);
+      dare = await loadDare(dareId);
+    }
   }
   if (!dare) throw new ApiError(404, "No dare with that number.");
 
@@ -37,11 +45,12 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
     db().from("group_members").select("*", { count: "exact", head: true }).eq("group_id", groupId),
   ]);
   const votes = check(votesRes, "loading votes") as Array<{ voter_wallet: string; pass: boolean; created_at: string | null }>;
-  const [profiles, proofs, voted, reactions] = await Promise.all([
+  const [profiles, proofs, voted, reactions, viewerReports] = await Promise.all([
     profilesByWallet([dare.creator_wallet, dare.target_wallet, dare.doer_wallet, ...votes.map((v) => v.voter_wallet)]),
-    proofsByHash([dare.proof_hash]),
+    proofsForDares([dare]),
     votedDareIds(me, [Number(dare.id)]),
     reactionsFor([Number(dare.id)], me),
+    reportedBy(me, [Number(dare.id)]),
   ]);
   const [view] = buildDareViews({
     dares: [dare],
@@ -50,6 +59,7 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
     voted,
     profiles,
     proofs,
+    viewerReports,
     reactions,
     groupNames: new Map([[groupId, access.group?.name ?? null]]),
     readOnlyGroups: access.member ? undefined : new Set([groupId]),

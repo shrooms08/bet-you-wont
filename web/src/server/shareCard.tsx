@@ -196,7 +196,8 @@ async function imageData(url: string | null | undefined): Promise<string | null>
 
 /** Cache key: one PNG per dare state (and the bits of the doer shown on the card). */
 export function cardKey(d: DareView): string {
-  return `${d.id}:${d.state}:${d.outcome}:${d.proofUrl ?? "-"}:${d.doer?.streak ?? 0}:${d.doer?.avatarUrl ?? "-"}`;
+  // the proof hash, not its (short-lived, signed) URL; hidden text/media change the card too
+  return `${d.id}:${d.state}:${d.outcome}:${d.proofUrl ? (d.proofHash ?? "media") : "-"}:${d.textHidden ? "t" : ""}${d.mediaHidden ? "m" : ""}:${d.doer?.streak ?? 0}:${d.doer?.avatarUrl ?? "-"}`;
 }
 
 /** Renders (or returns the cached) share card PNG for a dare. */

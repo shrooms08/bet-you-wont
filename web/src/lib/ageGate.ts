@@ -26,4 +26,4 @@ export const setAgeOk = (on: boolean) => set(OK, on);
 export const isUnder18 = () => get(UNDER);
 export const markUnder18 = () => set(UNDER, true);
 
-export const AGE_LINE = "i'm 18 or older and i'll keep dares safe and legal.";
+export const AGE_LINE = "i'm 18 or older and i agree to the terms and guidelines";

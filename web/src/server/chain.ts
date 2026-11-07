@@ -56,6 +56,11 @@ export function isMemberOnchain(groupId: bigint, account: Address): Promise<bool
   );
 }
 
+/** Number of dares ever created (ids run 1..dareCount). */
+export function dareCountOnchain(): Promise<bigint> {
+  return rpc("dareCount", () => publicClient.readContract({ address: escrowAddress(), abi: escrowAbi, functionName: "dareCount" }));
+}
+
 /** 1-based join order of `account` in the group (0 = not a member). v2: votes need it <= voterSnapshot. */
 export function memberJoinIndexOnchain(groupId: bigint, account: Address): Promise<number> {
   return rpc("memberJoinIndex", () =>

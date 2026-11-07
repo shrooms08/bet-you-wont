@@ -104,7 +104,7 @@ With motion allowed, all three are present and a burst is drawn. A unit test als
   - Bursts, confetti and emoji counts are within spec.
   - The reduced-motion switch, `pick()` and the exact preset values.
 - **Build, lint, types:** `npm run build` passes; `npm run lint` and `tsc --noEmit` are clean.
-- **Layout checks:** `node scripts/screenshots.mjs` passes on all 53 screenshots: no horizontal scroll, the nav never covers content, no text cut at a viewport edge, and no "robinhood". The 3c-2a screenshots were refreshed to show the texture.
+- **Layout checks:** `node scripts/screenshots.mjs` passes on all 53 screenshots: no horizontal scroll, the nav never covers content, no text cut at a viewport edge, and the brand naming check passes. The 3c-2a screenshots were refreshed to show the texture.
 - **Page-entrance wrapper:** settles to `transform: none` and `will-change: auto`. This matters because a leftover transform would break fixed elements inside the page, such as the toast and the proof sheet.
 
 ## Performance findings

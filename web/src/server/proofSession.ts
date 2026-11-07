@@ -19,9 +19,10 @@ export type SessionRow = {
   code: string;
   issued_at: string;
   expires_at: string;
+  used_at?: string | null;
 };
 
-export type SessionCheck = "ok" | "missing" | "wrong-dare" | "wrong-user" | "expired";
+export type SessionCheck = "ok" | "missing" | "wrong-dare" | "wrong-user" | "expired" | "used";
 
 /** Is this session usable to finalize proof for `dareId` by this user/wallet at `now`? */
 export function checkSession(
@@ -32,6 +33,7 @@ export function checkSession(
   if (String(s.dare_id) !== String(ctx.dareId)) return "wrong-dare";
   if (s.wallet_address !== ctx.wallet.toLowerCase() || s.privy_user_id !== ctx.userId) return "wrong-user";
   if (Date.parse(s.expires_at) <= ctx.now) return "expired";
+  if (s.used_at) return "used"; // L-3: one proof per capture session
   return "ok";
 }
 
@@ -40,4 +42,5 @@ export const SESSION_ERRORS: Record<Exclude<SessionCheck, "ok">, string> = {
   "wrong-dare": "That capture was made for a different dare.",
   "wrong-user": "That capture session belongs to someone else.",
   expired: "That capture session expired (15 minutes). Take the proof again.",
+  used: "That capture session was already used. Open the camera again.",
 };

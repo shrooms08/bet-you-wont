@@ -45,8 +45,17 @@ export const uploadRequestSchema = z
     kind: z.enum(["avatar", "proof"]),
     mime: z.string(),
     size: z.number().int().positive(),
+    // M-4: proof uploads belong to a live capture session: the media file, or a video's poster
+    sessionId: z.uuid().optional(),
+    role: z.enum(["media", "poster"]).optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.kind === "proof" && (!v.sessionId || !v.role)) {
+      ctx.addIssue({ code: "custom", path: ["sessionId"], message: "proof uploads need the capture sessionId and role" });
+    }
+    if (v.kind === "proof" && v.role === "poster" && v.mime !== "image/jpeg") {
+      ctx.addIssue({ code: "custom", path: ["mime"], message: "a video poster must be image/jpeg" });
+    }
     const rule = UPLOAD_RULES[v.kind];
     if (!rule.mimes[v.mime]) {
       ctx.addIssue({ code: "custom", path: ["mime"], message: `${v.kind} must be one of ${Object.keys(rule.mimes).join(", ")}` });

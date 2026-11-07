@@ -1,7 +1,8 @@
 import { requireCaller } from "@/server/auth";
 import { LIVE_STATES } from "@/server/dareRules";
-import { buildDareViews, proofsByHash, votedDareIds } from "@/server/dareView";
-import { ok, getRoute } from "@/server/http";
+import { buildDareViews, proofsForDares, reportedBy, votedDareIds } from "@/server/dareView";
+import { clientIp, ok, getRoute } from "@/server/http";
+import { enforceRouteLimit } from "@/server/rateLimit";
 import { DARE_COLUMNS, groupsForWallet, profilesByWallet, type DareRow } from "@/server/queries";
 import { check, db } from "@/server/supabase";
 
@@ -9,6 +10,7 @@ import { check, db } from "@/server/supabase";
 export const GET = getRoute(async (request: Request) => {
   const caller = await requireCaller(request);
   const me = caller.wallet.toLowerCase();
+  await enforceRouteLimit("home", clientIp(request), caller.userId);
   const groups = await groupsForWallet(me);
   const ids = groups.map((g) => g.id);
 
@@ -24,10 +26,11 @@ export const GET = getRoute(async (request: Request) => {
       ) as unknown as DareRow[])
     : [];
 
-  const [profiles, proofs, voted] = await Promise.all([
+  const [profiles, proofs, voted, viewerReports] = await Promise.all([
     profilesByWallet(dares.flatMap((d) => [d.creator_wallet, d.target_wallet, d.doer_wallet])),
-    proofsByHash(dares.map((d) => d.proof_hash)),
+    proofsForDares(dares),
     votedDareIds(me, dares.map((d) => Number(d.id))),
+    reportedBy(me, dares.map((d) => Number(d.id))),
   ]);
   const views = buildDareViews({
     dares,
@@ -36,6 +39,7 @@ export const GET = getRoute(async (request: Request) => {
     voted,
     profiles,
     proofs,
+    viewerReports,
     groupNames: new Map(groups.map((g) => [g.id, g.name])),
   });
 

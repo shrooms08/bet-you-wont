@@ -15,9 +15,17 @@ export function publicCardAllowed(group: { is_public: boolean } | null | undefin
 }
 
 /** Changes whenever the card would look different, so CDNs and unfurlers cache one PNG per dare state. */
-export function cardVersion(d: { state: string; outcome: string; proof_hash: string | null }): string {
+export function cardVersion(d: {
+  state: string;
+  outcome: string;
+  proof_hash: string | null;
+  text_hidden_at?: string | null;
+  media_hidden_at?: string | null;
+}): string {
   const proof = d.proof_hash ? d.proof_hash.replace(/^0x/, "").slice(0, 10) : "none";
-  return `${d.state}-${d.outcome}-${proof}`.toLowerCase().replace(/[^a-z0-9-]/g, "");
+  // hiding text or media after reports changes the card, so it changes the version too
+  const hidden = `${d.text_hidden_at ? "t" : ""}${d.media_hidden_at ? "m" : ""}`;
+  return `${d.state}-${d.outcome}-${proof}${hidden ? `-h${hidden}` : ""}`.toLowerCase().replace(/[^a-z0-9-]/g, "");
 }
 
 export type PreviewDare = {

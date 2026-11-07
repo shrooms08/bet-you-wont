@@ -230,7 +230,17 @@ describe("streak freeze validation", () => {
   const token = "0x00000000000000000000000000000000000000f1";
   const me = "0x00000000000000000000000000000000000000a1";
   const burn = (p: Partial<TransferLog> = {}): TransferLog => ({ token, from: me, to: ZERO, value: FREEZE_COST_WEI, ...p });
-  const base = { token, linkedWallets: [me.toUpperCase()], minAmount: FREEZE_COST_WEI, txAlreadyUsed: false, weeksAlreadyFrozen: [] as string[], week: "2026-W45", now: NOW };
+  const base = {
+    token,
+    linkedWallets: [me.toUpperCase()],
+    minAmount: FREEZE_COST_WEI,
+    txAlreadyUsed: false,
+    weeksAlreadyFrozen: [] as string[],
+    week: "2026-W45",
+    now: NOW,
+    burnedAt: NOW - 3_600_000, // an hour ago
+    qualifiedWeeks: [] as string[],
+  };
   it("accepts a 2,000 $wif burn from your wallet for this week or last week", () => {
     expect(checkFreeze({ ...base, transfers: [burn()] })).toEqual({ result: "ok", from: me, amount: FREEZE_COST_WEI });
     expect(checkFreeze({ ...base, week: "2026-W44", transfers: [burn()] }).result).toBe("ok");
@@ -245,6 +255,20 @@ describe("streak freeze validation", () => {
     expect(checkFreeze({ ...base, week: "2026-W43", transfers: [burn()] }).result).toBe("wrong-week");
     expect(checkFreeze({ ...base, week: "2026-W46", transfers: [burn()] }).result).toBe("wrong-week");
     expect(checkFreeze({ ...base, weeksAlreadyFrozen: ["2026-W45"], transfers: [burn()] }).result).toBe("already-frozen");
+  });
+  it("L-4: the burn must be mined in the week it saves or the last 7 days, and after the previous qualifying week", () => {
+    const day = 86_400_000;
+    // saving last week (W44) with a burn from 3 days ago (this week): within 7 days
+    expect(checkFreeze({ ...base, week: "2026-W44", burnedAt: NOW - 3 * day, transfers: [burn()] }).result).toBe("ok");
+    // a burn from 20 days ago saves nothing
+    expect(checkFreeze({ ...base, burnedAt: NOW - 20 * day, transfers: [burn()] }).result).toBe("stale-burn");
+    // inside the week it saves, even if > 7 days... (W44 started Mon 26 Oct; NOW is Wed 4 Nov)
+    expect(checkFreeze({ ...base, week: "2026-W44", burnedAt: Date.parse("2026-10-26T01:00:00Z"), transfers: [burn()] }).result).toBe("ok");
+    // but never before the previous qualifying week ended: W44 qualified, so a W44 burn can't save W45
+    expect(checkFreeze({ ...base, qualifiedWeeks: ["2026-W44"], burnedAt: Date.parse("2026-10-31T12:00:00Z"), transfers: [burn()] }).result).toBe("stale-burn");
+    expect(checkFreeze({ ...base, qualifiedWeeks: ["2026-W44"], burnedAt: NOW - day, transfers: [burn()] }).result).toBe("ok");
+    // a burn in the future (clock skew) doesn't count as recent unless inside the week
+    expect(checkFreeze({ ...base, week: "2026-W44", burnedAt: NOW + day, transfers: [burn()] }).result).toBe("stale-burn");
   });
 });
 

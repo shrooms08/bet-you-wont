@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNow } from "@/hooks/useNow";
 import { useFeed, useLeaderboard, type Session } from "@/hooks/data";
@@ -22,6 +23,17 @@ import { SectionLabel } from "../ui/RaisedCard";
 import { EmptyState, Skeleton } from "../ui/States";
 
 /** The group's dares that need something from this viewer, as home-style buckets. */
+/** The wifie's creator can replace the invite code (old links stop working). Others get undefined. */
+function rotateInvite(s: Session, f: Feed, qc: QueryClient) {
+  if (f.group.creator.wallet !== f.viewer) return undefined;
+  return async () => {
+    if (s.mock) return "n3wc0d3x9q";
+    const r = await s.byw.api<{ inviteCode: string }>(`/api/groups/${f.group.id}/invite-code`, { body: {} });
+    await qc.invalidateQueries({ queryKey: ["feed", f.group.id] });
+    return r.inviteCode;
+  };
+}
+
 function waitingFor(dares: DareView[]) {
   return waitingItems({
     toAccept: dares.filter((d) => d.canAccept),
@@ -33,6 +45,7 @@ function waitingFor(dares: DareView[]) {
 
 function GroupMain({ s, groupId }: { s: Session; groupId: number }) {
   const feed = useFeed(s, groupId);
+  const qc = useQueryClient();
   const actions = useActions(s);
   const mock = useMockMode();
   const now = useNow();
@@ -58,6 +71,7 @@ function GroupMain({ s, groupId }: { s: Session; groupId: number }) {
   }
   const f = feed.data as Feed;
   const label = groupName(f.group.id, f.group.name);
+  const rotate = rotateInvite(s, f, qc);
 
   return (
     <div className="flex flex-col gap-6">
@@ -70,7 +84,7 @@ function GroupMain({ s, groupId }: { s: Session; groupId: number }) {
             </li>
           ))}
         </ul>
-        <InviteButton code={f.group.inviteCode} groupLabel={label} />
+        <InviteButton code={f.group.inviteCode} groupLabel={label} onRotate={rotate} />
       </div>
 
       <div className="flex gap-2 rounded-full border-[3px] border-line bg-surface p-1" role="tablist" aria-label="wifie view">
@@ -145,6 +159,7 @@ function LeaderboardPanel({ s, groupId }: { s: Session; groupId: number }) {
 
 function GroupRight({ s, groupId }: { s: Session; groupId: number }) {
   const feed = useFeed(s, groupId);
+  const qc = useQueryClient();
   const actions = useActions(s);
   if (!feed.data) return null;
   const f = feed.data;
@@ -161,7 +176,7 @@ function GroupRight({ s, groupId }: { s: Session; groupId: number }) {
           ))}
         </section>
       )}
-      <MembersPanel title={`${label} · ${f.members.length}`} members={f.members} inviteCode={f.group.inviteCode} groupLabel={label} />
+      <MembersPanel title={`${label} · ${f.members.length}`} members={f.members} inviteCode={f.group.inviteCode} groupLabel={label} onRotate={rotateInvite(s, f, qc)} />
       <StatsPanel stats={f.stats} />
     </>
   );

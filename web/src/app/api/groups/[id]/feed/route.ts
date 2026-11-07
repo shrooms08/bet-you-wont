@@ -1,8 +1,9 @@
 import { requireCaller } from "@/server/auth";
 import { isMemberOnchain } from "@/server/chain";
 import { LIVE_STATES } from "@/server/dareRules";
-import { buildDareViews, proofsByHash, votedDareIds } from "@/server/dareView";
-import { ApiError, ok, getRoute } from "@/server/http";
+import { buildDareViews, proofsForDares, reportedBy, votedDareIds } from "@/server/dareView";
+import { ApiError, clientIp, ok, getRoute } from "@/server/http";
+import { enforceRouteLimit } from "@/server/rateLimit";
 import { DARE_COLUMNS, profilesByWallet, toPublic, type DareRow, type GroupRow } from "@/server/queries";
 import { check, db } from "@/server/supabase";
 import { sync } from "@/server/sync";
@@ -18,12 +19,15 @@ async function loadGroup(id: string) {
 export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id: string }> }) => {
   const caller = await requireCaller(request);
   const groupId = idSchema.parse((await ctx.params).id);
+  await enforceRouteLimit("group-feed", clientIp(request), caller.userId);
   if (!(await isMemberOnchain(groupId, caller.wallet))) throw new ApiError(403, "You are not a member of this group.");
 
   const id = groupId.toString();
   let group = await loadGroup(id);
   if (!group) {
-    await sync({ force: true, waitMs: 10_000 }).catch(() => null); // brand-new group not synced yet
+    // brand-new group not synced yet (membership was checked onchain, so the group exists): wait for
+    // a normal throttled sync, never a forced one (M-6)
+    await sync({ waitMs: 6_000 }).catch(() => null);
     group = await loadGroup(id);
     if (!group) throw new ApiError(404, "Group not synced yet. Try again in a few seconds.");
   }
@@ -36,10 +40,11 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
   const dares = check(daresRes, "loading dares") as unknown as DareRow[];
 
   const me = caller.wallet.toLowerCase();
-  const [profiles, proofs, voted] = await Promise.all([
+  const [profiles, proofs, voted, viewerReports] = await Promise.all([
     profilesByWallet([...members.map((m) => m.wallet_address), ...dares.flatMap((d) => [d.creator_wallet, d.target_wallet, d.doer_wallet])]),
-    proofsByHash(dares.map((d) => d.proof_hash)),
+    proofsForDares(dares),
     votedDareIds(me, dares.map((d) => Number(d.id))),
+    reportedBy(me, dares.map((d) => Number(d.id))),
   ]);
   const myJoinIndex = members.find((m) => m.wallet_address === me)?.join_index ?? null;
 
@@ -69,6 +74,7 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
       voted,
       profiles,
       proofs,
+      viewerReports,
     }),
   });
 });

@@ -100,8 +100,10 @@ describe("moderation blocklist", () => {
 describe("upload requests", () => {
   it("allows the bucket's mime types and sizes", () => {
     expect(ok(uploadRequestSchema, { kind: "avatar", mime: "image/png", size: 5 * 1024 * 1024 })).toBe(true);
-    expect(ok(uploadRequestSchema, { kind: "proof", mime: "video/webm", size: 50 * 1024 * 1024 })).toBe(true);
-    expect(ok(uploadRequestSchema, { kind: "proof", mime: "image/jpeg", size: 10 })).toBe(true);
+    // proofs belong to a capture session (M-4)
+    const sess = { sessionId: "3f6b1b5e-2a8c-4c3e-9a51-0f2f7a2d9b10", role: "media" };
+    expect(ok(uploadRequestSchema, { kind: "proof", mime: "video/webm", size: 50 * 1024 * 1024, ...sess })).toBe(true);
+    expect(ok(uploadRequestSchema, { kind: "proof", mime: "image/jpeg", size: 10, ...sess })).toBe(true);
   });
   it("rejects wrong mime, oversize, zero size, unknown kind", () => {
     expect(ok(uploadRequestSchema, { kind: "avatar", mime: "video/mp4", size: 10 })).toBe(false);

@@ -67,7 +67,7 @@ web/
   .env.example              names only (committed); .env.local is gitignored, never committed
   scripts/sync-abi.mjs      `npm run sync-abi`: contracts/abi + deployments/testnet.json -> src/abi/*.ts (as const)
   src/abi/                  BYWEscrow.ts, MockWIF.ts, deployments.ts (generated, committed so Vercel can build)
-  src/lib/chains.ts         viem defineChain: "RH Chain Testnet" (46630), "RH Chain" (4663)
+  src/lib/chains.ts         viem defineChain: "Robinhood Chain Testnet" (46630), "Robinhood Chain" (4663)
   src/lib/contracts.ts      NEXT_PUBLIC_NETWORK -> chain, escrow, token, ABIs, explorer link helpers
   src/lib/wagmi.ts          @privy-io/wagmi createConfig (active chain only)
   src/lib/errors.ts         viem/wallet error -> readable string, escrow custom-error decoding
@@ -116,7 +116,7 @@ To fund a test wallet, run this from `contracts/`: `./script/fund.sh <address>`.
 |---|---|
 | `npm run build` | ✅ no type errors (Turbopack). `/` is static; `/api/permit` is dynamic. |
 | `npm run lint` | ✅ clean, with no rules disabled |
-| `curl localhost:3000/` | ✅ 200, `<title>Bet You Won't</title>`, 0 occurrences of "robinhood" in the HTML |
+| `curl localhost:3000/` | ✅ 200, `<title>Bet You Won't</title>`, brand naming check passes on the HTML |
 | `POST /api/permit` with the placeholder secret | ✅ 500 with the "PRIVY_APP_SECRET is missing…" message |
 | `POST /api/permit`, no token / bad token (dummy secret set in the process env) | ✅ 401 / 401 |
 | `GET /api/permit` | 405 |
@@ -170,7 +170,7 @@ Testnet ETH: the deployer now has 0.005359 ETH.
    - There's a harmless warning about a stray `/Users/minos/package-lock.json` outside the repo.
 9. **Brand rule:**
    - No UI text, title or asset uses the restricted name.
-   - Chain names are "RH Chain Testnet" / "RH Chain".
+   - Chain names are "Robinhood Chain Testnet" / "Robinhood Chain" (renamed after the audit).
    - Explorer link URLs and the RPC URLs still contain the official domain; that's unavoidable, and it isn't displayed as text.
    - The default Next favicon is still in place.
 10. **"Login method" is accurate only right after login.** Privy reports `loginMethod` only in the login callback. After a page reload, the page infers it from the linked accounts (google, then email, then wallet), which can differ from the method actually used.

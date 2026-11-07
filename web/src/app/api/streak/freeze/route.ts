@@ -8,7 +8,7 @@ import { publicClient } from "@/server/chain";
 import { checkFreeze, FREEZE_ERRORS } from "@/server/freeze";
 import { ApiError, ok, readJson, route } from "@/server/http";
 import { enforceRateLimit } from "@/server/rateLimit";
-import { recomputeStats, statsFor } from "@/server/stats";
+import { recomputeStats, scoreSnapshot, statsFor } from "@/server/stats";
 import { check, db } from "@/server/supabase";
 import { txHashSchema } from "@/server/validation";
 
@@ -35,10 +35,14 @@ export const POST = route(async (request: Request) => {
     to: l.args.to,
     value: l.args.value,
   }));
-  const [usedRes, frozenRes] = await Promise.all([
+  const [usedRes, frozenRes, block, scores] = await Promise.all([
     db().from("streak_freezes").select("id").eq("tx_hash", body.txHash).limit(1),
     db().from("streak_freezes").select("week").eq("privy_user_id", caller.userId),
+    publicClient.getBlock({ blockNumber: receipt.blockNumber }),
+    scoreSnapshot(),
   ]);
+  // weeks any of this user's wallets qualified (L-4: the burn must come after the last one)
+  const qualifiedWeeks = [...new Set(caller.wallets.flatMap((w) => scores.stats.get(w.toLowerCase())?.qualifiedWeeks ?? []))];
   const verdict = checkFreeze({
     transfers,
     token: tokenAddress,
@@ -48,6 +52,8 @@ export const POST = route(async (request: Request) => {
     weeksAlreadyFrozen: (check(frozenRes, "loading freezes") as Array<{ week: string }>).map((f) => f.week),
     week: body.week,
     now: Date.now(),
+    burnedAt: Number(block.timestamp) * 1000,
+    qualifiedWeeks,
   });
   if (verdict.result !== "ok") throw new ApiError(verdict.result === "reused-tx" || verdict.result === "already-frozen" ? 409 : 400, FREEZE_ERRORS[verdict.result]);
 

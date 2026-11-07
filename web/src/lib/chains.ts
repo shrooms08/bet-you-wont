@@ -1,10 +1,11 @@
 import { defineChain } from "viem";
 
-// Brand rule: UI-facing chain names use "RH Chain", never the full company name.
+// Brand rule (M-10): the network is always "Robinhood Chain" in full, title case. These names are
+// what the UI and Privy (and wallets adding the network) show.
 
 export const rhChainTestnet = defineChain({
   id: 46630,
-  name: "RH Chain Testnet",
+  name: "Robinhood Chain Testnet",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
     default: { http: ["https://rpc.testnet.chain.robinhood.com"] },
@@ -15,10 +16,10 @@ export const rhChainTestnet = defineChain({
   testnet: true,
 });
 
-// Explorer from Robinhood's network docs (docs.robinhood.com/chain/connecting).
+// Explorer from the Robinhood Chain network docs (docs.robinhood.com/chain/connecting).
 export const rhChain = defineChain({
   id: 4663,
-  name: "RH Chain",
+  name: "Robinhood Chain",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
     default: { http: ["https://rpc.mainnet.chain.robinhood.com"] },

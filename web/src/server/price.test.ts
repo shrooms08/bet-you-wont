@@ -32,7 +32,7 @@ describe("getWifPrice", () => {
     expect(seen[0]).toContain(`/networks/robinhood/token_price/${"0x5173b8eA6923c2d40267890D45C46a3480954773"}`);
   });
 
-  it("falls back to DexScreener's most liquid robinhood pair", async () => {
+  it("falls back to DexScreener's most liquid Robinhood Chain pair", async () => {
     mockFetch((url) =>
       url.includes("geckoterminal")
         ? { ok: false, status: 429 }

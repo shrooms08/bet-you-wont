@@ -1,6 +1,6 @@
 # BYW web
 
-A Next.js app on the RH Chain testnet (46630), using Privy for login, Supabase for data and storage, and an API that syncs the escrow's onchain state into Postgres.
+A Next.js app on Robinhood Chain (mainnet 4663; testnet 46630 for local work), using Privy for login, Supabase for data and storage, and an API that syncs the escrow's onchain state into Postgres.
 
 ## Screens (phase 3c-2a)
 
@@ -61,7 +61,7 @@ Test wallets need testnet ETH for gas (gas is not sponsored). From `contracts/`:
 - `npm run sync-abi`: regenerates `src/abi/*` from `../contracts`
 - `node scripts/motion-check.mjs video|perf`: records the O1 deck and the `/dev/motion` clips into `../design/screens/3c2m/` (needs `npm run dev`), or logs long tasks during the O1 transition at 4× CPU throttle (needs `next start -p 3001`).
 - `node scripts/capture-check.mjs [--upload] [--webm]`: with `npm run dev` running, uses a fake camera to take one photo and one 3-second clip in the real proof camera, then checks the files (type, magic bytes, size, the burned-in receipt, duration, poster). `--upload` also PUTs them to the proofs bucket and confirms a PNG is rejected. Run `set -a; source .env.local; set +a` first.
-- `node scripts/screenshots.mjs`: with `npm run dev` running, screenshots every screen at 390×844 @2x and 1440×900 into `../design/screens/3c2a/`. It also checks for horizontal scroll, the bottom nav covering content, and "robinhood" anywhere in the UI.
+- `node scripts/screenshots.mjs`: with `npm run dev` running, screenshots every screen at 390×844 @2x and 1440×900 into `../design/screens/3c2a/`. It also checks for horizontal scroll, the bottom nav covering content, and brand naming (the network may appear only as exactly "Robinhood Chain").
 
 ## API
 

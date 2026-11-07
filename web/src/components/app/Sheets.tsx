@@ -91,10 +91,28 @@ function CopyRow({ value, label }: { value: string; label: string }) {
   );
 }
 
-/** Invite sheet: wifie name, big QR of the /i/<code> link, copy, native share. */
-export function InviteSheet({ code, wifie, onClose }: { code: string; wifie: string; onClose: () => void }) {
+/**
+ * Invite sheet: wifie name, big QR of the /i/<code> link, copy, native share. The wifie's creator
+ * also gets "new link", which replaces the code so old links stop working.
+ */
+export function InviteSheet({ code: initial, wifie, onClose, onRotate }: { code: string; wifie: string; onClose: () => void; onRotate?: () => Promise<string> }) {
+  const [code, setCode] = useState(initial);
+  const [rotating, setRotating] = useState<"idle" | "confirm" | "busy">("idle");
+  const [note, setNote] = useState<string | null>(null);
   const url = typeof window === "undefined" ? `/i/${code}` : `${window.location.origin}/i/${code}`;
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  async function rotate() {
+    if (!onRotate) return;
+    setRotating("busy");
+    try {
+      setCode(await onRotate());
+      setNote("new link ready. old links don't work any more.");
+    } catch (err) {
+      setNote(plainError(describeError(err)));
+    } finally {
+      setRotating("idle");
+    }
+  }
   return (
     <Sheet title={`invite to ${wifie}`} onClose={onClose}>
       <div className="flex flex-col gap-4">
@@ -105,6 +123,29 @@ export function InviteSheet({ code, wifie, onClose }: { code: string; wifie: str
           <PillButton full onClick={() => void navigator.share({ title: "Bet You Won't", text: `join ${wifie} on bet you won't`, url }).catch(() => {})}>
             <ShareIcon size={18} /> share
           </PillButton>
+        )}
+        {onRotate &&
+          (rotating === "confirm" ? (
+            <div className="flex flex-col gap-2 rounded-[20px] border-[3px] border-line p-3" role="alertdialog" aria-label="replace the invite link?">
+              <p className="text-[15px] font-extrabold">make a new link? the old one stops working right away.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <PillButton size="sm" variant="ghost" onClick={() => setRotating("idle")}>
+                  keep it
+                </PillButton>
+                <PillButton size="sm" variant="danger" onClick={() => void rotate()}>
+                  new link
+                </PillButton>
+              </div>
+            </div>
+          ) : (
+            <PillButton full variant="ghost" size="sm" loading={rotating === "busy"} onClick={() => setRotating("confirm")}>
+              new invite link
+            </PillButton>
+          ))}
+        {note && (
+          <p className="text-[14px] text-muted" aria-live="polite">
+            {note}
+          </p>
         )}
       </div>
     </Sheet>

@@ -1,8 +1,9 @@
 import { requireCaller } from "@/server/auth";
 import { PUBLIC_GROUP_ID, quickSync } from "@/server/access";
-import { buildDareViews, proofsByHash, reactionsFor, votedDareIds } from "@/server/dareView";
+import { buildDareViews, proofsForDares, reactionsFor, reportedBy, votedDareIds } from "@/server/dareView";
 import { decodeCursor, paginate } from "@/server/feedCursor";
-import { getRoute, ok } from "@/server/http";
+import { clientIp, getRoute, ok } from "@/server/http";
+import { enforceRouteLimit } from "@/server/rateLimit";
 import { DARE_COLUMNS, profilesByWallet, type DareRow, type GroupRow } from "@/server/queries";
 import { check, db } from "@/server/supabase";
 
@@ -14,6 +15,7 @@ export const GET = getRoute(async (request: Request) => {
   const caller = await requireCaller(request);
   const me = caller.wallet.toLowerCase();
   const cursor = decodeCursor(new URL(request.url).searchParams.get("cursor"));
+  await enforceRouteLimit("feed", clientIp(request), caller.userId);
   await quickSync();
 
   const memberships = check(
@@ -38,12 +40,13 @@ export const GET = getRoute(async (request: Request) => {
 
   const ids = page.map((d) => Number(d.id));
   const pageGroups = [...new Set(page.map((d) => Number(d.group_id)))];
-  const [groupsRes, profiles, proofs, voted, reactions] = await Promise.all([
+  const [groupsRes, profiles, proofs, voted, reactions, viewerReports] = await Promise.all([
     pageGroups.length ? db().from("groups").select("id, name").in("id", pageGroups) : Promise.resolve({ data: [], error: null }),
     profilesByWallet(page.flatMap((d) => [d.creator_wallet, d.target_wallet, d.doer_wallet])),
-    proofsByHash(page.map((d) => d.proof_hash)),
+    proofsForDares(page),
     votedDareIds(me, ids),
     reactionsFor(ids, me),
+    reportedBy(me, ids),
   ]);
   const groupNames = new Map((check(groupsRes, "loading crews") as Array<Pick<GroupRow, "id" | "name">>).map((g) => [Number(g.id), g.name]));
   const views = buildDareViews({
@@ -53,6 +56,7 @@ export const GET = getRoute(async (request: Request) => {
     voted,
     profiles,
     proofs,
+    viewerReports,
     reactions,
     groupNames,
     readOnlyGroups: new Set(pageGroups.filter((g) => !memberOf.has(g))),

@@ -197,10 +197,16 @@ export function useActions(s: Session) {
       async (set) => {
         const { account, pc, escrow } = ctx();
         set({ status: "working", step: "uploading…", phase: "prepare" });
-        const storagePath = await uploadWithProgress(byw, "proof", c.blob, c.mime, (f) => onProgress?.(f * (c.poster ? 0.9 : 1)));
+        const storagePath = await uploadWithProgress(byw, "proof", c.blob, c.mime, (f) => onProgress?.(f * (c.poster ? 0.9 : 1)), {
+          sessionId: session.sessionId,
+          role: "media",
+        });
         let posterPath: string | undefined;
         if (c.poster) {
-          posterPath = await uploadWithProgress(byw, "proof", c.poster, "image/jpeg", (f) => onProgress?.(0.9 + f * 0.1));
+          posterPath = await uploadWithProgress(byw, "proof", c.poster, "image/jpeg", (f) => onProgress?.(0.9 + f * 0.1), {
+            sessionId: session.sessionId,
+            role: "poster",
+          });
         }
         set({ status: "working", step: "checking your proof…", phase: "prepare" });
         const { proofHash } = await byw.api<{ proofHash: Hex }>("/api/proofs/finalize", {

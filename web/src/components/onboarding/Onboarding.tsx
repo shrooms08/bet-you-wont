@@ -29,6 +29,7 @@ import { ageOk, isUnder18, markUnder18, setAgeOk } from "@/lib/ageGate";
 import { AgeCheckbox, Under18 } from "./AgeGate";
 import { StepHow } from "./HowItWorks";
 import { Sticker } from "./Sticker";
+import { LegalFooter } from "../legal/LegalFooter";
 
 export type Step = "how" | "signin" | "you" | "wallet" | "crew" | "first";
 const NEEDS_LOGIN: Step[] = ["you", "wallet", "crew", "first"];
@@ -177,6 +178,7 @@ function Frame({ children }: { children: ReactNode }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col gap-6 px-5 pb-[calc(32px+env(safe-area-inset-bottom))] pt-[calc(20px+env(safe-area-inset-top))] tab:pt-12">
       {children}
+      <LegalFooter className="mt-auto pt-2" />
     </main>
   );
 }

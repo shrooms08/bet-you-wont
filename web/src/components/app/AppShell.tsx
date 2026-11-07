@@ -7,6 +7,7 @@ import { useMockMode, withMock } from "@/lib/mock";
 import { PageEnter } from "../motion/PageEnter";
 import { AgeModal } from "./AgeModal";
 import { Skeleton } from "../ui/States";
+import { LegalFooter } from "../legal/LegalFooter";
 
 /**
  * Content area for logged-in screens (the nav lives in app/(app)/layout.tsx so it persists).
@@ -40,6 +41,7 @@ export function AppShell({
     <div className="flex min-w-0 flex-1 justify-center gap-10 px-4 tab:px-8 desk:px-10">
       <main className="pb-nav w-full min-w-0 max-w-[720px] pt-6 tab:pt-10 desk:pb-16">
         {ready ? <PageEnter>{children(s)}</PageEnter> : <Skeleton count={3} />}
+        {ready && <LegalFooter className="mt-12" />}
       </main>
       {ready && <AgeModal s={s} />}
       {right && ready && (

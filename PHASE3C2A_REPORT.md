@@ -128,7 +128,7 @@ Screens 01–02 are the real logged-out pages. Screens 03–20 use `?mock`.
 **Automated checks: all pass on all 40 screen × viewport combinations:**
 - No horizontal scroll at 390px.
 - Scrolled to the end, the last content sits above the bottom nav.
-- "robinhood" appears nowhere in visible text, the title, meta tags, `alt`, `aria-label`, `placeholder` or `title`.
+- the brand naming check passes in visible text, the title, meta tags, `alt`, `aria-label`, `placeholder` or `title`.
 
 The prerendered production HTML also has 0 mentions.
 
@@ -142,7 +142,7 @@ The design bundle contains the exact transparent cut-out PNGs, and its resource 
 
 1. **Design source file names.** `design/byw-prototype.html` and `design/byw-harmonies.html` don't exist. The only file is `design/Bet You Won't - 6 Color Harmonies.html`, a self-unpacking bundle that contains the full prototype (`BYWPrototypeOffline`, with its `THEMES` table) and every asset. I decoded it and rendered it with Playwright (phone and desktop, every screen) to study it. All tokens above come from its `THEMES.comp`.
 2. **Danger is orange, not theme A's deep violet.** Theme A sets danger/"nah" to `#421DBF`. Your brief says "danger orange" and "nah (orange)", so I used `#D9784F`, the prototype's own base danger, which passes 5.2:1. The FAILED tag keeps theme A's `#421DBF`. To match the design file exactly, change one line (`--byw-danger`) in `theme.css`.
-3. **Network wording.** The prototype says "base". The app says the chain's own name, "RH Chain Testnet", as allowed by the brand rule.
+3. **Network wording.** The prototype says "base". The app says the chain's own name, "Robinhood Chain Testnet" (originally a short form; renamed after the audit), as allowed by the brand rule.
 4. **@name length is 3–20.** The prototype says 3 to 15; the database and API allow 3–20, so the UI matches them.
 5. **One "add a photo" button** instead of the prototype's separate "take a photo" and "upload". On phones the system picker already offers the camera, and one control is simpler to label accessibly.
 6. **O5 order.** The highlighted crowd card comes first, as in the prototype, although your brief listed it third.

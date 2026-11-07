@@ -179,7 +179,7 @@ I then reset the sync cursor and re-synced from the deploy block (29 events, 4 d
   - no horizontal scroll
   - the bottom nav never covers content
   - no text cut at a viewport edge
-  - no "robinhood"
+  - brand naming check passes
 
   Rows that scroll sideways on purpose (stories and chip rows) fade out at the right edge and are skipped by the text-cut check.
 

@@ -28,6 +28,7 @@ import { Money } from "../ui/Money";
 import { PillButton, PillLink } from "../ui/PillButton";
 import { EmptyState, Skeleton } from "../ui/States";
 import { StatusTag, tagFor } from "../ui/StatusTag";
+import { HiddenNote, ReportButton } from "../app/Report";
 
 /** Slam the stamp only the first time someone sees a dare settled (remembered per dare). */
 function useFirstSettledView(dareId: number, settled: boolean) {
@@ -105,6 +106,7 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
           {crew}
         </p>
         <StatusTag kind={kind} />
+        <ReportButton s={s} dareId={d.id} hasProof={!!d.proofHash || !!d.proofUrl} className="h-12 w-12" />
       </div>
 
       {!data.member && (
@@ -135,7 +137,13 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
         </div>
       )}
 
-      <DareText text={d.text} size="lg" />
+      {!d.proofUrl && d.proofHash && (kind === "VOTING" || settled) && (
+        <div className="grid min-h-[200px] place-items-center rounded-[28px] border-[3px] border-line bg-inset p-6 text-center">
+          {d.mediaHidden ? <HiddenNote what="proof" /> : <p className="text-[15px] font-extrabold text-muted">proof missing</p>}
+        </div>
+      )}
+
+      {d.textHidden ? <HiddenNote what="text" /> : <DareText text={d.text} size="lg" />}
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex items-end gap-2">

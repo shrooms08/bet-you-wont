@@ -1,13 +1,16 @@
 "use client";
 
-import { animate, motion, useReducedMotion } from "motion/react";
+import { useQueryClient } from "@tanstack/react-query";
+import { animate, AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useUser, type Session } from "@/hooks/data";
 import { HttpError } from "@/hooks/useByw";
 import { useActions } from "@/hooks/useActions";
+import { describeError } from "@/lib/errors";
 import { formatWif } from "@/lib/format";
+import { plainError } from "@/lib/plainErrors";
 import { useMockMode, withMock } from "@/lib/mock";
 import type { ProofTile } from "@/lib/types";
 import { AppShell } from "../app/AppShell";
@@ -140,6 +143,11 @@ function ProfileMain({ s, username }: { s: Session; username: string | null }) {
             >
               log out
             </PillButton>
+            {s.me.data?.isAdmin && (
+              <PillLink href={withMock("/admin", mock)} variant="ghost" size="sm">
+                admin
+              </PillLink>
+            )}
           </div>
         </div>
       )}
@@ -159,7 +167,65 @@ function ProfileMain({ s, username }: { s: Session; username: string | null }) {
         ))}
       </div>
       <Grid tiles={tiles} />
+      {me && <DeleteProfile s={s} />}
     </div>
+  );
+}
+
+/** "delete my profile" with a confirm step. Onchain records stay; everything we store about you goes. */
+function DeleteProfile({ s }: { s: Session }) {
+  const qc = useQueryClient();
+  const router = useRouter();
+  const [step, setStep] = useState<"idle" | "confirm" | "busy">("idle");
+  const [error, setError] = useState<string | null>(null);
+  async function remove() {
+    setStep("busy");
+    setError(null);
+    try {
+      if (!s.mock) await s.byw.api("/api/profile/delete", { body: {} });
+      await qc.invalidateQueries();
+      router.replace(s.mock ? "/start?mock=1" : "/start");
+    } catch (err) {
+      setError(plainError(describeError(err)));
+      setStep("confirm");
+    }
+  }
+  return (
+    <section className="raised flex flex-col gap-3 p-5" aria-label="your data">
+      <h2 className="font-display text-[16px] uppercase leading-tight tracking-normal">your data</h2>
+      <p className="text-[15px] text-muted">
+        delete your profile, photo, proof files and 🔥 reactions. your @name is freed. dares, votes and bounties are onchain and can&apos;t be deleted.{" "}
+        <Link href="/privacy" className="underline">
+          privacy
+        </Link>
+      </p>
+      <AnimatePresence initial={false} mode="wait">
+        {step === "idle" ? (
+          <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <PillButton variant="ghost" size="sm" onClick={() => setStep("confirm")}>
+              delete my profile
+            </PillButton>
+          </motion.div>
+        ) : (
+          <motion.div key="confirm" role="alertdialog" aria-label="delete your profile?" className="flex flex-col gap-3 rounded-[20px] border-[3px] border-danger p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <p className="text-[17px] font-extrabold tracking-[-0.03em]">delete your profile for good? this can&apos;t be undone.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <PillButton size="sm" variant="ghost" disabled={step === "busy"} onClick={() => setStep("idle")}>
+                keep it
+              </PillButton>
+              <PillButton size="sm" variant="danger" loading={step === "busy"} onClick={() => void remove()}>
+                delete
+              </PillButton>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {error && (
+        <p className="text-[14px] text-danger" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
   );
 }
 

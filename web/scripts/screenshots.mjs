@@ -7,7 +7,9 @@
 //   - no horizontal scroll (document wider than the viewport)
 //   - the fixed bottom nav never covers content (scrolled to the end, main's last element ends
 //     above the nav)
-//   - no "robinhood" in visible text, title, meta tags, alt / aria-label / placeholder / title attributes
+//   - brand naming (M-10) in visible text, title, meta tags, alt / aria-label / placeholder / title
+//     attributes: the network may appear only as exactly "Robinhood Chain"; any other "Robinhood"
+//     (any case) or "RH Chain" fails
 //   - no visible text line is cut by the left or right viewport edge (text fully off-screen, like a
 //     carousel's next card, is fine; text straddling the edge is not). Rows that scroll sideways on
 //     purpose (stories, chip rows) are marked data-hscroll and fade out at the edge; they're skipped.
@@ -64,6 +66,15 @@ const SCREENS = [
   { name: "35-streak-at-risk", path: "/home?mock=1", nav: true, clock: "2026-11-07T12:00:00Z", set: "3c2b2" },
   { name: "36-result-score", path: "/d/45?mock=1", nav: true, waitText: "+125 score", set: "3c2b2" },
   { name: "37-age-modal", path: "/home?mock=1&age=0", viewportOnly: true, waitText: "confirm once", set: "3c2b2" },
+  // audit fixes: legal pages, reporting, admin, no-votes result, invite rotation
+  { name: "39-terms", path: "/terms", set: "audit" },
+  { name: "40-privacy", path: "/privacy", set: "audit" },
+  { name: "41-guidelines", path: "/guidelines", set: "audit" },
+  { name: "42-report-sheet", path: "/d/45?mock=1", nav: true, clickText: "report dare 45", afterClickMs: 600, waitText: "send report", set: "audit" },
+  { name: "43-admin", path: "/admin?mock=1", nav: true, waitText: "review queue", set: "audit" },
+  { name: "44-dare-no-votes", path: "/d/32?mock=1", nav: true, set: "audit" },
+  { name: "45-invite-rotate", path: "/g/7?mock=1", nav: true, sequence: ["invite", "new invite link"], afterClickMs: 600, waitText: "old one stops working", set: "audit" },
+  { name: "46-sign-in-terms", path: "/start?step=signin", waitText: "i agree to the", set: "audit" },
   // last: marks this browser under 18 in localStorage (each viewport gets a fresh context)
   { name: "38-under-18", path: "/start?step=signin", clickText: "i'm under 18", afterClickMs: 700, waitText: "come back when", set: "3c2b2" },
 ];
@@ -150,7 +161,8 @@ for (const vp of VIEWPORTS) {
         const attrs = [...document.querySelectorAll("[alt],[aria-label],[placeholder],[title],meta[content]")]
           .map((el) => ["alt", "aria-label", "placeholder", "title", "content"].map((a) => el.getAttribute(a) ?? "").join(" "))
           .join(" ");
-        const brand = /robinhood/i.test(`${document.title} ${document.body.innerText} ${attrs}`);
+        const all = `${document.title} ${document.body.innerText} ${attrs}`;
+        const brand = /robinhood/i.test(all.replace(/Robinhood Chain/g, "")) || /\bRH\s*Chain\b/i.test(all);
         let covered = false;
         const navEl = document.querySelector("nav[aria-label=main].fixed");
         if (nav && navEl && getComputedStyle(navEl).display !== "none") {
@@ -186,7 +198,7 @@ for (const vp of VIEWPORTS) {
     const problems = [];
     if (check.hScroll) problems.push(`horizontal scroll (${check.width}px)`);
     if (check.covered) problems.push("bottom nav covers content");
-    if (check.brand) problems.push('"robinhood" found');
+    if (check.brand) problems.push('brand: "Robinhood" other than exactly "Robinhood Chain", or "RH Chain"');
     if (check.cut.length) problems.push(`text cut at viewport edge: ${check.cut.map((t) => JSON.stringify(t)).join(", ")}`);
     console.log(`${problems.length ? "FAIL" : "ok  "}  ${vp.tag.padEnd(12)} ${sc.name}${problems.length ? `  -> ${problems.join(", ")}` : ""}`);
     if (problems.length) failures.push(`${vp.tag} ${sc.name}: ${problems.join(", ")}`);

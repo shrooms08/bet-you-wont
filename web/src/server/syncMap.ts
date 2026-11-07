@@ -49,13 +49,37 @@ export type Touched = {
   votes: VoteEvent[];
   /** Blocks whose timestamps we need (member joins and every dare event). */
   blocks: Set<bigint>;
+  /** Malformed escrow logs we skipped (logged by sync, never fatal): "<tx>:<logIndex> <event>". */
+  skipped: string[];
 };
+
+const isId = (v: unknown) => typeof v === "bigint" && v > BigInt(0);
+const isAddr = (v: unknown) => typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v);
+const isUint = (v: unknown) => typeof v === "bigint" && v >= BigInt(0);
+
+/** Required args per escrow event. A log missing them is skipped instead of failing the pass (M-5). */
+const REQUIRED: Record<string, (a: Record<string, unknown>) => boolean> = {
+  GroupCreated: (a) => isId(a.groupId) && isAddr(a.creator),
+  MemberJoined: (a) => isId(a.groupId) && isAddr(a.member) && (a.joinIndex === undefined || typeof a.joinIndex === "number" || typeof a.joinIndex === "bigint"),
+  DareCreated: (a) => isId(a.dareId) && isId(a.groupId) && isAddr(a.creator),
+  DareCancelled: (a) => isId(a.dareId),
+  DareAccepted: (a) => isId(a.dareId),
+  ProofSubmitted: (a) => isId(a.dareId),
+  Voted: (a) => isId(a.dareId) && isAddr(a.voter) && typeof a.pass === "boolean",
+  DareSettled: (a) => isId(a.dareId) && isUint(a.payout) && isUint(a.burned),
+};
+
+/** True if the log is an event we don't track (ignored) or a tracked event with all its args. */
+export function wellFormed(log: EscrowLog): boolean {
+  const check = REQUIRED[log.eventName];
+  return !check || (!!log.args && check(log.args));
+}
 
 const lower = (a: unknown) => String(a).toLowerCase();
 
 /** Groups the logs by the group/dare they touch. Unknown events (Paused, OwnershipTransferred...) are ignored. */
 export function collectTouched(logs: EscrowLog[]): Touched {
-  const t: Touched = { groups: new Map(), dares: new Map(), members: [], votes: [], blocks: new Set() };
+  const t: Touched = { groups: new Map(), dares: new Map(), members: [], votes: [], blocks: new Set(), skipped: [] };
   const group = (id: bigint) => {
     if (!t.groups.has(id)) t.groups.set(id, {});
     return t.groups.get(id)!;
@@ -74,6 +98,10 @@ export function collectTouched(logs: EscrowLog[]): Touched {
     a.blockNumber === b.blockNumber ? a.logIndex - b.logIndex : a.blockNumber < b.blockNumber ? -1 : 1,
   );
   for (const log of ordered) {
+    if (!wellFormed(log)) {
+      t.skipped.push(`${log.transactionHash}:${log.logIndex} ${log.eventName}`);
+      continue;
+    }
     const a = log.args;
     switch (log.eventName) {
       case "GroupCreated":
@@ -237,4 +265,20 @@ export function groupByShape<T extends Record<string, unknown>>(rows: T[]): T[][
     byShape.get(shape)!.push(row);
   }
   return [...byShape.values()];
+}
+
+/** L-6: only blocks this deep are read, so a short reorg at the tip never lands in the database. */
+export const CONFIRMATIONS = BigInt(3);
+export function safeHead(latest: bigint, confirmations = CONFIRMATIONS): bigint {
+  return latest > confirmations ? latest - confirmations : BigInt(0);
+}
+
+/** Splits [a, b] in two halves (for a getLogs range the RPC refused or that returned too many logs). */
+export function splitRange([a, b]: [bigint, bigint]): Array<[bigint, bigint]> {
+  if (b <= a) return [[a, b]];
+  const mid = a + (b - a) / BigInt(2);
+  return [
+    [a, mid],
+    [mid + BigInt(1), b],
+  ];
 }

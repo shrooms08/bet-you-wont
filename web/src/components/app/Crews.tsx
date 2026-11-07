@@ -161,7 +161,18 @@ export function JoinPublicCard({ s, actions, onJoined }: { s: Session; actions: 
 }
 
 /** Opens the invite sheet (QR, copy link, native share). */
-export function InviteButton({ code, groupLabel, variant = "secondary" }: { code: string | null; groupLabel: string; variant?: "secondary" | "ghost" }) {
+export function InviteButton({
+  code,
+  groupLabel,
+  variant = "secondary",
+  onRotate,
+}: {
+  code: string | null;
+  groupLabel: string;
+  variant?: "secondary" | "ghost";
+  /** the wifie's creator only: replaces the invite code and returns the new one */
+  onRotate?: () => Promise<string>;
+}) {
   const [open, setOpen] = useState(false);
   if (!code) return null;
   return (
@@ -170,13 +181,25 @@ export function InviteButton({ code, groupLabel, variant = "secondary" }: { code
         <ShareIcon size={18} />
         invite
       </PillButton>
-      <AnimatePresence>{open && <InviteSheet code={code} wifie={groupLabel} onClose={() => setOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{open && <InviteSheet code={code} wifie={groupLabel} onClose={() => setOpen(false)} onRotate={onRotate} />}</AnimatePresence>
     </>
   );
 }
 
 /** Desktop side panel: members list. */
-export function MembersPanel({ title, members, inviteCode, groupLabel }: { title: string; members: PublicProfile[]; inviteCode: string | null; groupLabel: string }) {
+export function MembersPanel({
+  title,
+  members,
+  inviteCode,
+  groupLabel,
+  onRotate,
+}: {
+  title: string;
+  members: PublicProfile[];
+  inviteCode: string | null;
+  groupLabel: string;
+  onRotate?: () => Promise<string>;
+}) {
   return (
     <section className="raised flex flex-col gap-3 p-5" aria-label={title}>
       <h2 className="font-display text-[16px] uppercase leading-tight tracking-normal">{title}</h2>
@@ -193,7 +216,7 @@ export function MembersPanel({ title, members, inviteCode, groupLabel }: { title
       </ul>
       {inviteCode && (
         <div className="mt-1">
-          <InviteButton code={inviteCode} groupLabel={groupLabel} />
+          <InviteButton code={inviteCode} groupLabel={groupLabel} onRotate={onRotate} />
         </div>
       )}
     </section>
