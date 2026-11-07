@@ -17,7 +17,7 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || url.origin;
 
   let d: DareView;
-  if (process.env.NODE_ENV !== "production" && url.searchParams.get("mock")) {
+  if ((process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_E2E_MOCK === "1") && url.searchParams.get("mock")) {
     d = mockDare(dareId).dare;
   } else {
     const caller = await requireCaller(request);

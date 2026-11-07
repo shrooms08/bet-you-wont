@@ -7,6 +7,7 @@
 //   - no horizontal scroll (document wider than the viewport)
 //   - the fixed bottom nav never covers content (scrolled to the end, main's last element ends
 //     above the nav)
+//   - no Content-Security-Policy violations (the CSP is enforced; see next.config.ts)
 //   - brand naming (M-10) in visible text, title, meta tags, alt / aria-label / placeholder / title
 //     attributes: the network may appear only as exactly "Robinhood Chain"; any other "Robinhood"
 //     (any case) or "RH Chain" fails
@@ -100,6 +101,11 @@ const open = async (vp, sc = {}) => {
   p.on("pageerror", (e) => failures.push(`${vp.tag} pageerror: ${e.message.split("\n")[0]}`));
   if (sc.clock) await p.clock.setFixedTime(new Date(sc.clock));
   if (sc.noNativeShare) await p.addInitScript(() => Object.defineProperty(navigator, "canShare", { value: undefined }));
+  // CSP: every violation on our own pages fails the screen (the policy is enforced)
+  await p.addInitScript(() => {
+    window.__cspViolations = [];
+    document.addEventListener("securitypolicyviolation", (e) => window.__cspViolations.push(`${e.effectiveDirective} <- ${(e.blockedURI || "inline").split("?")[0].slice(0, 80)}`));
+  });
   return p;
 };
 const files = [];
@@ -191,7 +197,7 @@ for (const vp of VIEWPORTS) {
             if ((r.left < -1 && r.right > 1) || (r.left < W - 1 && r.right > W + 1)) cut.push(n.textContent.trim().slice(0, 30));
           }
         }
-        return { hScroll, brand, covered, cut: [...new Set(cut)], width: doc.scrollWidth };
+        return { hScroll, brand, covered, cut: [...new Set(cut)], width: doc.scrollWidth, csp: [...new Set(window.__cspViolations ?? [])] };
       },
       { nav: !!sc.nav },
     );
@@ -199,6 +205,7 @@ for (const vp of VIEWPORTS) {
     if (check.hScroll) problems.push(`horizontal scroll (${check.width}px)`);
     if (check.covered) problems.push("bottom nav covers content");
     if (check.brand) problems.push('brand: "Robinhood" other than exactly "Robinhood Chain", or "RH Chain"');
+    if (check.csp.length) problems.push(`CSP violations: ${check.csp.join(", ")}`);
     if (check.cut.length) problems.push(`text cut at viewport edge: ${check.cut.map((t) => JSON.stringify(t)).join(", ")}`);
     console.log(`${problems.length ? "FAIL" : "ok  "}  ${vp.tag.padEnd(12)} ${sc.name}${problems.length ? `  -> ${problems.join(", ")}` : ""}`);
     if (problems.length) failures.push(`${vp.tag} ${sc.name}: ${problems.join(", ")}`);

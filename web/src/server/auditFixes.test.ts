@@ -197,3 +197,23 @@ describe("M-5 / L-6: resilient sync", () => {
     expect(splitRange([BigInt(7), BigInt(7)])).toEqual([[BigInt(7), BigInt(7)]]);
   });
 });
+
+import { parseCspReports } from "./cspReport";
+
+describe("CSP violation reports", () => {
+  it("parses report-uri and Reporting API formats, keeping only origin and path", () => {
+    expect(
+      parseCspReports({
+        "csp-report": { "document-uri": "https://betyouwont.vercel.app/d/5?x=secret", "effective-directive": "img-src", "blocked-uri": "https://evil.example/pixel.gif?u=1" },
+      }),
+    ).toEqual([{ directive: "img-src", blocked: "https://evil.example", page: "/d/5" }]);
+    expect(
+      parseCspReports([
+        { type: "csp-violation", body: { documentURL: "https://betyouwont.vercel.app/start", effectiveDirective: "script-src-elem", blockedURL: "inline" } },
+        { type: "deprecation", body: {} },
+      ]),
+    ).toEqual([{ directive: "script-src-elem", blocked: "inline", page: "/start" }]);
+    expect(parseCspReports({ nope: true })).toEqual([]);
+    expect(parseCspReports(null)).toEqual([]);
+  });
+});

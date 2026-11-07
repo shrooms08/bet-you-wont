@@ -10,7 +10,7 @@ import { useSyncExternalStore } from "react";
  * `false` and the mock branches are dead code. Variants: ?mock=empty (no groups, no dares),
  * ?mock=external (external wallet on the wrong network).
  */
-export const MOCK_ALLOWED = process.env.NODE_ENV !== "production";
+export const MOCK_ALLOWED = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_E2E_MOCK === "1"; // E2E: local builds only (next.config refuses it on Vercel)
 
 export type MockMode = false | "full" | "empty" | "external";
 
