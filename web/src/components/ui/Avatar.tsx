@@ -1,4 +1,5 @@
 import type { PublicProfile } from "@/lib/types";
+import { PersonLink } from "../app/People";
 import { handle } from "@/lib/format";
 
 // The prototype's default "doodle" face, for people without a photo.
@@ -49,6 +50,7 @@ export function AvatarStack({ people, size = 36, max = 5 }: { people: Array<Publ
 export function AvatarChip({ person, label }: { person: PublicProfile | null | undefined; label?: string }) {
   const text = label ?? handle(person);
   return (
+    <PersonLink username={person?.username} className="inline-flex shrink-0">
     <span className="inline-flex shrink-0 flex-col gap-1">
       <span className="max-w-24 truncate text-[13px] font-extrabold leading-none">{text}</span>
       {person ? (
@@ -64,5 +66,6 @@ export function AvatarChip({ person, label }: { person: PublicProfile | null | u
         </span>
       )}
     </span>
+    </PersonLink>
   );
 }

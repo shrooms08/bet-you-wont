@@ -24,6 +24,8 @@ import { StatusTag } from "../ui/StatusTag";
 import { EmptyState } from "../ui/States";
 import { PageEnter } from "../motion/PageEnter";
 import { StaggerItem, StaggerList } from "../motion/Stagger";
+import { ageOk, isUnder18, markUnder18, setAgeOk } from "@/lib/ageGate";
+import { AgeCheckbox, Under18 } from "./AgeGate";
 import { StepHow } from "./HowItWorks";
 import { Sticker } from "./Sticker";
 
@@ -42,6 +44,11 @@ export function Onboarding({ inviteCode }: { inviteCode?: string }) {
   const router = useRouter();
   const mock = useMockMode();
   const invite = useInvitePreview(inviteCode ?? null);
+  const [under18, setUnder18] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads browser storage once
+    if (isUnder18()) setUnder18(true);
+  }, []);
 
   const steps: Step[] = inviteCode ? ["how", "signin", "you", "wallet"] : ["how", "signin", "you", "wallet", "crew", "first"];
   const requested = params.get("step") as Step | null;
@@ -82,6 +89,14 @@ export function Onboarding({ inviteCode }: { inviteCode?: string }) {
     if (step === "how" || step === "signin" || step === "you") go("wallet", "", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- go/toFeed/actions are recreated each render; the inputs below are what matter
   }, [s.mock, s.ready, s.authenticated, s.me.isSuccess, hasProfile, step, inviteCode, inviteGroupId, isMember]);
+
+  if (under18) {
+    return (
+      <Frame>
+        <Under18 />
+      </Frame>
+    );
+  }
 
   if (inviteCode && invite.isError) {
     return (
@@ -126,7 +141,16 @@ export function Onboarding({ inviteCode }: { inviteCode?: string }) {
       {/* each step enters like a route: fade in + rise 12px */}
       <PageEnter key={step} className="flex flex-1 flex-col gap-6">
       {header}
-      {step === "signin" && <StepSignIn s={s} onMock={() => go("you")} />}
+      {step === "signin" && (
+        <StepSignIn
+          s={s}
+          onMock={() => go("you")}
+          onUnder18={() => {
+            markUnder18();
+            setUnder18(true);
+          }}
+        />
+      )}
       {step === "you" && (
         <StepYou s={s} actions={actions} onDone={() => (params.get("from") === "profile" ? router.push(withMock("/profile", mock)) : go("wallet"))} />
       )}
@@ -189,8 +213,11 @@ function InviteNote({ invite }: { invite: InvitePreview }) {
 
 // ---------------------------------------------------------------- O2 sign in
 
-function StepSignIn({ s, onMock }: { s: Session; onMock: () => void }) {
+function StepSignIn({ s, onMock, onUnder18 }: { s: Session; onMock: () => void; onUnder18: () => void }) {
+  const [adult, setAdult] = useState(false);
   const login = (method: "email" | "google" | "wallet") => {
+    if (!adult) return;
+    setAgeOk(true);
     if (s.mock) return onMock();
     s.byw.login({ loginMethods: [method] });
   };
@@ -219,16 +246,20 @@ function StepSignIn({ s, onMock }: { s: Session; onMock: () => void }) {
         <Money wei={(BigInt(10000) * BigInt(10) ** BigInt(18)).toString()} size="sm" />
       </div>
       <div className="mt-auto flex flex-col gap-3">
-        <PillButton full size="lg" onClick={() => login("email")} disabled={!s.ready}>
+        <AgeCheckbox checked={adult} onChange={setAdult} />
+        <PillButton full size="lg" onClick={() => login("email")} disabled={!s.ready || !adult}>
           continue with email
         </PillButton>
-        <PillButton full size="lg" variant="ghost" onClick={() => login("google")} disabled={!s.ready}>
+        <PillButton full size="lg" variant="ghost" onClick={() => login("google")} disabled={!s.ready || !adult}>
           continue with google
         </PillButton>
-        <PillButton full size="lg" variant="ghost" onClick={() => login("wallet")} disabled={!s.ready}>
+        <PillButton full size="lg" variant="ghost" onClick={() => login("wallet")} disabled={!s.ready || !adult}>
           connect wallet
         </PillButton>
-        <p className="mt-1 text-center text-[14px] text-muted">dares have to be safe, legal and kind. that&apos;s the only rule.</p>
+        <button type="button" onClick={onUnder18} className="mx-auto min-h-11 text-[14px] text-muted underline underline-offset-2">
+          i&apos;m under 18
+        </button>
+        <p className="text-center text-[14px] text-muted">dares have to be safe, legal and kind. that&apos;s the only rule.</p>
       </div>
     </>
   );
@@ -278,6 +309,15 @@ function StepYou({ s, actions, onDone }: { s: Session; actions: Actions; onDone:
   const [photo, setPhoto] = useState<File | null>(null);
   const preview = useObjectUrl(photo);
   const check = useUsernameCheck(name, current, !!s.mock);
+  // ticked on the sign-in step in this browser? then don't ask twice
+  const [askedBefore, setAskedBefore] = useState(true);
+  const [adult, setAdult] = useState(true);
+  useEffect(() => {
+    const before = ageOk();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads browser storage once
+    setAskedBefore(before);
+    setAdult(before);
+  }, []);
   const inputId = useId();
   const hintId = useId();
 
@@ -294,7 +334,9 @@ function StepYou({ s, actions, onDone }: { s: Session; actions: Actions; onDone:
 
   async function save() {
     if (!ok) return;
-    const done = await actions.saveProfile(name, photo);
+    if (!adult) return;
+    setAgeOk(true);
+    const done = await actions.saveProfile(name, photo, true);
     if (done) onDone();
   }
 
@@ -381,7 +423,8 @@ function StepYou({ s, actions, onDone }: { s: Session; actions: Actions; onDone:
           </div>
         </div>
 
-        <PillButton type="submit" full size="lg" disabled={!ok} loading={actions.busy === "profile"}>
+        {!askedBefore && <AgeCheckbox checked={adult} onChange={setAdult} />}
+        <PillButton type="submit" full size="lg" disabled={!ok || !adult} loading={actions.busy === "profile"}>
           that&apos;s me
         </PillButton>
       </form>
@@ -523,7 +566,7 @@ function StepWallet({
 function StepCrew({ s, actions, onPicked }: { s: Session; actions: Actions; onPicked: (groupId: number) => void }) {
   return (
     <>
-      <Headline line1="find your" line2="crew." accent="lime" />
+      <Headline line1="find your" line2="wifie." accent="lime" />
       <StaggerList as="div" className="mt-3 flex flex-col gap-5">
         <StaggerItem as="div">
           <JoinPublicCard s={s} actions={actions} onJoined={onPicked} />

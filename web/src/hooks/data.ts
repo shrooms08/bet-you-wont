@@ -4,9 +4,9 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteD
 import { useEffect } from "react";
 import { useBalance, useReadContract } from "wagmi";
 import { activeChain, tokenAbi, tokenAddress } from "@/lib/contracts";
-import { MOCK_BALANCES, MOCK_INVITE, MOCK_PUBLIC_GROUP, MOCK_WALLET, mockDare, mockFeed, mockFeedPage, mockHome, mockMe } from "@/lib/fixtures";
+import { MOCK_BALANCES, MOCK_HISTORY, MOCK_INVITE, MOCK_PUBLIC_GROUP, MOCK_WALLET, mockDare, mockFeed, mockFeedPage, mockHome, mockLeaderboard, mockMe, mockUser } from "@/lib/fixtures";
 import { useMockMode } from "@/lib/mock";
-import type { DareDetail, Feed, FeedPage, Home, InvitePreview, Me, Price, PublicGroup } from "@/lib/types";
+import type { DareDetail, Feed, FeedPage, HistoryItem, Home, InvitePreview, Leaderboard, Me, Price, PublicGroup, UserPage } from "@/lib/types";
 import { HttpError, useByw } from "./useByw";
 
 async function publicGet<T>(path: string): Promise<T> {
@@ -26,7 +26,8 @@ export function useSession() {
   const live = byw.authenticated && !!byw.address && !mock;
   const me = useQuery({
     queryKey: ["me", mock || byw.address],
-    queryFn: () => (mock ? Promise.resolve(mockMe(mock)) : byw.api<Me>("/api/me")),
+    queryFn: () =>
+      mock ? Promise.resolve(mockMe(mock, new URLSearchParams(window.location.search).get("age") !== "0")) : byw.api<Me>("/api/me"),
     enabled: !!mock || live,
     staleTime: 15_000,
   });
@@ -133,6 +134,32 @@ export function useReaction(s: Session) {
   });
 }
 
+/** GET /api/users/<username>: profile, stats and the proof grid. */
+export function useUser(s: Session, username: string | null) {
+  return useQuery({
+    queryKey: ["user", username, s.mock || s.address],
+    queryFn: () => (s.mock ? Promise.resolve(mockUser(username!)) : s.byw.api<UserPage>(`/api/users/${encodeURIComponent(username!)}`)),
+    enabled: !!username && (!!s.mock || (s.authenticated && !!s.address)),
+    retry: (count, err) => !(err instanceof HttpError && err.status === 404) && count < 2,
+  });
+}
+
+export function useLeaderboard(s: Session, groupId: number, period: "week" | "all", enabled = true) {
+  return useQuery({
+    queryKey: ["leaderboard", groupId, period, s.mock || s.address],
+    queryFn: () => (s.mock ? Promise.resolve(mockLeaderboard(period)) : s.byw.api<Leaderboard>(`/api/groups/${groupId}/leaderboard?period=${period}`)),
+    enabled: enabled && (!!s.mock || (s.authenticated && !!s.address)),
+  });
+}
+
+export function useWalletHistory(s: Session) {
+  return useQuery({
+    queryKey: ["history", s.mock || s.address],
+    queryFn: () => (s.mock ? Promise.resolve({ items: MOCK_HISTORY }) : s.byw.api<{ items: HistoryItem[] }>("/api/wallet/history")),
+    enabled: !!s.mock || (s.authenticated && !!s.address),
+  });
+}
+
 export function usePrice() {
   return useQuery({
     queryKey: ["price"],
@@ -204,6 +231,8 @@ export function useSyncLoop(enabled: boolean) {
         queryClient.invalidateQueries({ queryKey: ["me"] }),
         queryClient.invalidateQueries({ queryKey: ["dare"] }),
         queryClient.invalidateQueries({ queryKey: ["posts"] }),
+        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["user"] }),
       ]);
     };
     const id = window.setInterval(() => void tick(), 20_000);

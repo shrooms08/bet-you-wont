@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
@@ -9,11 +10,13 @@ import { groupName, inviteCodeFrom, PUBLIC_GROUP_ID } from "@/lib/format";
 import { useMockMode, withMock } from "@/lib/mock";
 import type { FeedStats, MyGroup, PublicProfile } from "@/lib/types";
 import { Avatar, AvatarStack } from "../ui/Avatar";
-import { ChevronRightIcon, CopyIcon, ShareIcon } from "../ui/icons";
+import { ChevronRightIcon, ShareIcon } from "../ui/icons";
 import { Money } from "../ui/Money";
 import { PillButton } from "../ui/PillButton";
+import { PersonLink, StreakFlame } from "./People";
+import { InviteSheet } from "./Sheets";
 
-/** A crew in a list: name, avatars, counts, chevron. */
+/** A wifie in a list: name, avatars, counts, chevron. */
 export function CrewCard({ g }: { g: MyGroup }) {
   const mock = useMockMode();
   const name = groupName(g.id, g.name);
@@ -54,7 +57,7 @@ export function StartGroupCard({ actions, onCreated }: { actions: Actions; onCre
       }}
     >
       <label htmlFor={id} className="text-[20px] font-extrabold tracking-[-0.04em]">
-        start a group
+        start a wifie
       </label>
       <div className="flex gap-2">
         <input
@@ -123,7 +126,7 @@ export function InviteCodeCard() {
   );
 }
 
-/** The highlighted "join the world is flat crowd" card (public group). */
+/** The highlighted "join the world is flat wifie" card (public group). */
 export function JoinPublicCard({ s, actions, onJoined }: { s: Session; actions: Actions; onJoined: (groupId: number) => void }) {
   const pub = usePublicGroup(PUBLIC_GROUP_ID);
   const already = s.me.data?.groups.some((g) => g.id === PUBLIC_GROUP_ID) && !s.mock;
@@ -139,7 +142,7 @@ export function JoinPublicCard({ s, actions, onJoined }: { s: Session; actions: 
         start here
       </span>
       <p className="font-display text-[12px] uppercase tracking-[0.04em] text-muted">public · anyone can join</p>
-      <p className="text-[26px] font-extrabold leading-[1.05] tracking-[-0.045em]">join the {name}</p>
+      <p className="text-[26px] font-extrabold leading-[1.05] tracking-[-0.045em]">join the {name} wifie</p>
       {pub.data && (
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border-[3px] border-line bg-secondary px-3 py-1 text-[14px] text-on-secondary">{pub.data.openDares} dares open</span>
@@ -151,36 +154,24 @@ export function JoinPublicCard({ s, actions, onJoined }: { s: Session; actions: 
         </div>
       )}
       <PillButton full size="lg" loading={actions.busy === `join:${PUBLIC_GROUP_ID}`} onClick={() => void join()}>
-        {already ? "open the crowd" : "join the crowd"}
+        {already ? "open the wifie" : "join the wifie"}
       </PillButton>
     </div>
   );
 }
 
-/** Copies the invite link; uses the Web Share sheet on touch devices when available. */
+/** Opens the invite sheet (QR, copy link, native share). */
 export function InviteButton({ code, groupLabel, variant = "secondary" }: { code: string | null; groupLabel: string; variant?: "secondary" | "ghost" }) {
-  const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(false);
   if (!code) return null;
-  async function share() {
-    const url = `${window.location.origin}/i/${code}`;
-    const touch = window.matchMedia("(pointer: coarse)").matches;
-    if (touch && typeof navigator.share === "function") {
-      try {
-        await navigator.share({ title: "Bet You Won't", text: `join ${groupLabel} on bet you won't`, url });
-        return;
-      } catch {
-        // user closed the share sheet: fall back to copy
-      }
-    }
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
   return (
-    <PillButton variant={variant} size="sm" onClick={() => void share()} aria-live="polite">
-      {copied ? <CopyIcon size={18} /> : <ShareIcon size={18} />}
-      {copied ? "link copied" : "invite"}
-    </PillButton>
+    <>
+      <PillButton variant={variant} size="sm" onClick={() => setOpen(true)} aria-haspopup="dialog">
+        <ShareIcon size={18} />
+        invite
+      </PillButton>
+      <AnimatePresence>{open && <InviteSheet code={code} wifie={groupLabel} onClose={() => setOpen(false)} />}</AnimatePresence>
+    </>
   );
 }
 
@@ -191,9 +182,12 @@ export function MembersPanel({ title, members, inviteCode, groupLabel }: { title
       <h2 className="font-display text-[16px] uppercase leading-tight tracking-normal">{title}</h2>
       <ul className="flex max-h-[360px] flex-col gap-2.5 overflow-y-auto">
         {members.map((m) => (
-          <li key={m.wallet} className="flex items-center gap-3">
-            <Avatar person={m} size={36} />
-            <span className="truncate text-[16px] font-extrabold">{m.username ? `@${m.username}` : "new member"}</span>
+          <li key={m.wallet}>
+            <PersonLink username={m.username} className="flex items-center gap-3">
+              <Avatar person={m} size={36} />
+              <span className="truncate text-[16px] font-extrabold">{m.username ? `@${m.username}` : "new member"}</span>
+              <StreakFlame n={m.streak} />
+            </PersonLink>
           </li>
         ))}
       </ul>

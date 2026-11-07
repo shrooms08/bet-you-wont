@@ -8,10 +8,10 @@ import { BottomNav, DesktopRail, type NavKey } from "../ui/Nav";
 
 export function navKeyFor(pathname: string): NavKey | undefined {
   if (pathname.startsWith("/home")) return "home";
-  if (pathname.startsWith("/crews") || pathname.startsWith("/g/")) return "crews";
+  if (pathname.startsWith("/wifies") || pathname.startsWith("/crews") || pathname.startsWith("/g/")) return "crews";
   if (pathname.startsWith("/new")) return "new";
   if (pathname.startsWith("/wallet")) return "wallet";
-  if (pathname.startsWith("/profile")) return "profile";
+  if (pathname.startsWith("/profile") || pathname.startsWith("/u/")) return "profile";
   return undefined;
 }
 

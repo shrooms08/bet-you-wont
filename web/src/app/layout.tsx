@@ -10,7 +10,7 @@ const caveatBrush = Caveat_Brush({ weight: "400", subsets: ["latin"], variable: 
 
 export const metadata: Metadata = {
   title: "Bet You Won't",
-  description: "Dare your friends. Lock a bounty in $wif. Post proof, your crew votes, you get paid.",
+  description: "Dare your friends. Lock a bounty in $wif. Post proof, your wifie votes, you get paid.",
 };
 
 export const viewport: Viewport = {

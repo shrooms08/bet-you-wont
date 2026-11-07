@@ -71,14 +71,14 @@ export function splitKeyPhrase(raw: string | null | undefined): { key: string; r
   return { key, rest };
 }
 
-/** The public crowd group has no stored name on testnet; give it its brand name. */
+/** The public group has no stored name on testnet; give it its brand name. */
 export const PUBLIC_GROUP_ID = Number(process.env.NEXT_PUBLIC_PUBLIC_GROUP_ID ?? "1");
-export const PUBLIC_GROUP_NAME = "world is flat crowd";
+export const PUBLIC_GROUP_NAME = "world is flat";
 
 export function groupName(id: number, name: string | null | undefined): string {
   if (name) return name;
   if (id === PUBLIC_GROUP_ID) return PUBLIC_GROUP_NAME;
-  return `crew #${id}`;
+  return `wifie #${id}`;
 }
 
 /** "@kemi" or "0x3b03…59ce" for wallets without a profile. */

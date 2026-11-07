@@ -4,6 +4,7 @@ import { parseEventLogs, type Hex } from "viem";
 import { escrowAbi, escrowAddress, escrowDeployBlock } from "@/lib/contracts";
 import { publicClient } from "./chain";
 import { ApiError, sleep } from "./http";
+import { recomputeStats } from "./stats";
 import { db } from "./supabase";
 import {
   chunkRanges,
@@ -210,6 +211,10 @@ export async function sync(opts: { force?: boolean; waitMs?: number } = {}): Pro
       try {
         const result = await runSync(cursor, startBlock);
         await unlock(holder, BigInt(result.lastBlock));
+        // Dare Score / streaks: recompute when this pass wrote dares or votes.
+        if ((result.dares ?? 0) > 0 || (result.votes ?? 0) > 0) {
+          await recomputeStats().catch((err) => console.error("[sync] stats:", err instanceof Error ? err.message : String(err)));
+        }
         return { status: "synced", ...result };
       } catch (err) {
         await unlock(holder, null);

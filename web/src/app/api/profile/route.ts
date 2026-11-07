@@ -6,6 +6,7 @@ import type { ProfileRow } from "@/server/queries";
 import { enforceRateLimit } from "@/server/rateLimit";
 import { check, db, publicUrl } from "@/server/supabase";
 import { profileSchema } from "@/server/validation";
+import { profileAgeDecision } from "@/server/visibility";
 
 /** Confirms an uploaded avatar is ours, exists, and really is the image type it claims. */
 async function verifyAvatar(path: string, wallet: string): Promise<string> {
@@ -37,6 +38,9 @@ export const POST = route(async (request: Request) => {
     "loading profile",
   ) as ProfileRow[];
   const ringColor = existing[0]?.ring_color ?? RING_COLORS[Math.floor(Math.random() * RING_COLORS.length)];
+  // 18+: creating a profile needs ageConfirmed; an existing unconfirmed profile confirms here
+  const age = profileAgeDecision(existing[0] ? { age_confirmed_at: existing[0].age_confirmed_at ?? null } : null, body.ageConfirmed);
+  if (!age.ok) throw new ApiError(403, "confirm you're 18+");
 
   const { data, error } = await db()
     .from("profiles")
@@ -47,6 +51,7 @@ export const POST = route(async (request: Request) => {
         username: body.username,
         ring_color: ringColor,
         ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
+        ...(age.setAge ? { age_confirmed_at: new Date().toISOString() } : {}),
       },
       { onConflict: "privy_user_id" },
     )
@@ -59,5 +64,5 @@ export const POST = route(async (request: Request) => {
     throw new ApiError(502, "Database error while saving your profile.");
   }
   const p = data as ProfileRow;
-  return ok({ profile: { wallet: p.wallet_address, username: p.username, avatarUrl: p.avatar_url, ringColor: p.ring_color } });
+  return ok({ profile: { wallet: p.wallet_address, username: p.username, avatarUrl: p.avatar_url, ringColor: p.ring_color, ageConfirmed: !!p.age_confirmed_at } });
 });

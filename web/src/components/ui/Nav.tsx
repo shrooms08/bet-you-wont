@@ -18,7 +18,7 @@ function ActivePill({ id }: { id: string }) {
 
 const ITEMS: Array<{ key: NavKey; href: string; label: string; icon: (size: number) => ReactNode }> = [
   { key: "home", href: "/home", label: "home", icon: (s) => <HomeIcon size={s} /> },
-  { key: "crews", href: "/crews", label: "crews", icon: (s) => <CrewsIcon size={s + 2} /> },
+  { key: "crews", href: "/wifies", label: "wifies", icon: (s) => <CrewsIcon size={s + 2} /> },
   { key: "new", href: "/new", label: "new dare", icon: (s) => <PlusIcon size={s + 8} /> },
   { key: "wallet", href: "/wallet", label: "wallet", icon: (s) => <WalletIcon size={s} /> },
   { key: "profile", href: "/profile", label: "profile", icon: (s) => <ProfileIcon size={s} /> },

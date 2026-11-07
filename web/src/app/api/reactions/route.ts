@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requireAdult } from "@/server/age";
 import { requireCaller } from "@/server/auth";
 import { crewAccess } from "@/server/access";
 import { ApiError, ok, readJson, route } from "@/server/http";
@@ -11,6 +12,7 @@ import { idSchema } from "@/server/validation";
 // (member of its crew, or the crew is public). Returns {reacted, count}.
 export const POST = route(async (request: Request) => {
   const caller = await requireCaller(request);
+  await requireAdult(caller);
   const body = z.object({ dareId: idSchema }).parse(await readJson(request));
   await enforceRateLimit(`reactions:${caller.userId}`, 120, 3600, "Easy on the 🔥.");
   const dareId = body.dareId.toString();

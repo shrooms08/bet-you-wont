@@ -11,9 +11,11 @@ export type ProfileRow = {
   avatar_url: string | null;
   ring_color: string | null;
   created_at: string;
+  age_confirmed_at?: string | null;
+  streak?: number; // from user_stats.current_streak (not a profiles column)
 };
 
-export type PublicProfile = { wallet: string; username: string | null; avatarUrl: string | null; ringColor: string | null };
+export type PublicProfile = { wallet: string; username: string | null; avatarUrl: string | null; ringColor: string | null; streak?: number };
 
 export type DareRow = {
   id: number;
@@ -63,7 +65,7 @@ export type GroupRow = {
 };
 
 export function toPublic(wallet: string, p: ProfileRow | undefined): PublicProfile {
-  return { wallet, username: p?.username ?? null, avatarUrl: p?.avatar_url ?? null, ringColor: p?.ring_color ?? null };
+  return { wallet, username: p?.username ?? null, avatarUrl: p?.avatar_url ?? null, ringColor: p?.ring_color ?? null, streak: p?.streak ?? 0 };
 }
 
 /** Profiles keyed by lowercased wallet. */
@@ -71,8 +73,13 @@ export async function profilesByWallet(wallets: Iterable<string | null | undefin
   const list = [...new Set([...wallets].filter((w): w is string => !!w).map((w) => w.toLowerCase()))];
   const map = new Map<string, ProfileRow>();
   if (!list.length) return map;
-  const rows = check(await db().from("profiles").select("*").in("wallet_address", list), "loading profiles") as ProfileRow[];
-  for (const r of rows) map.set(r.wallet_address, r);
+  const [rowsRes, statsRes] = await Promise.all([
+    db().from("profiles").select("*").in("wallet_address", list),
+    db().from("user_stats").select("wallet_address, current_streak").in("wallet_address", list),
+  ]);
+  const rows = check(rowsRes, "loading profiles") as ProfileRow[];
+  const streaks = new Map((check(statsRes, "loading streaks") as Array<{ wallet_address: string; current_streak: number }>).map((r) => [r.wallet_address, r.current_streak]));
+  for (const r of rows) map.set(r.wallet_address, { ...r, streak: streaks.get(r.wallet_address) ?? 0 });
   return map;
 }
 

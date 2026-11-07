@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 import { useSession, useSyncLoop, type Session } from "@/hooks/data";
 import { useMockMode, withMock } from "@/lib/mock";
 import { PageEnter } from "../motion/PageEnter";
+import { AgeModal } from "./AgeModal";
 import { Skeleton } from "../ui/States";
 
 /**
@@ -40,6 +41,7 @@ export function AppShell({
       <main className="pb-nav w-full min-w-0 max-w-[720px] pt-6 tab:pt-10 desk:pb-16">
         {ready ? <PageEnter>{children(s)}</PageEnter> : <Skeleton count={3} />}
       </main>
+      {ready && <AgeModal s={s} />}
       {right && ready && (
         <aside className="hidden w-[320px] shrink-0 pt-10 desk:block" aria-label="side panel">
           <PageEnter className="sticky top-10 flex flex-col gap-6">{right(s)}</PageEnter>

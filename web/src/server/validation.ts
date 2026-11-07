@@ -59,6 +59,8 @@ export const uploadRequestSchema = z
 export const profileSchema = z.object({
   username: usernameSchema,
   avatarPath: z.string().max(200).optional(),
+  /** "i'm 18 or older and i'll keep dares safe and legal" (required to create a profile) */
+  ageConfirmed: z.boolean().optional(),
 });
 
 export const registerGroupSchema = z.object({ txHash: txHashSchema, name: groupNameSchema });

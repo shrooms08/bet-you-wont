@@ -2,12 +2,12 @@ import { describeError } from "./errors";
 
 // Escrow custom errors and common wallet failures, in plain words for toasts.
 const CONTRACT_ERRORS: Record<string, string> = {
-  GroupNotFound: "that crew doesn't exist.",
-  AlreadyMember: "you're already in this crew.",
-  NotMember: "you need to be in this crew first.",
+  GroupNotFound: "that wifie doesn't exist.",
+  AlreadyMember: "you're already in this wifie.",
+  NotMember: "you need to be in this wifie first.",
   PermitExpired: "that invite expired. try joining again.",
   InvalidPermitSigner: "that invite isn't valid. ask for a fresh link.",
-  GroupTooSmall: "a crew needs at least 3 people before anyone can dare.",
+  GroupTooSmall: "a wifie needs at least 3 people before anyone can dare.",
   InvalidTarget: "you can't dare that person here.",
   AmountOutOfRange: "that bounty is too small or too big.",
   InvalidDoDuration: "pick between 1 hour and 7 days to do it.",

@@ -1,4 +1,5 @@
 import { requireCaller } from "@/server/auth";
+import { requireAdult } from "@/server/age";
 import { isMemberOnchain } from "@/server/chain";
 import { computeMetaHash, newSalt } from "@/server/hashing";
 import { ApiError, ok, readJson, route } from "@/server/http";
@@ -11,6 +12,7 @@ import { draftSchema } from "@/server/validation";
 // metaHash to pass to createDare. Sync later links the onchain dare back to this text by metaHash.
 export const POST = route(async (request: Request) => {
   const caller = await requireCaller(request);
+  await requireAdult(caller);
   const body = draftSchema.parse(await readJson(request));
   await enforceRateLimit(`draft:${caller.userId}`, 30, 3600, "Too many dare drafts.");
 

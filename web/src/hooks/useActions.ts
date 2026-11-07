@@ -7,6 +7,7 @@ import { activeChain, escrowAbi, escrowAddress, tokenAbi, tokenAddress } from "@
 import { describeError } from "@/lib/errors";
 import { resizeImage } from "@/lib/image";
 import type { TxState } from "@/lib/tx";
+import { FREEZE_COST_TOKENS, FREEZE_COST_WEI } from "@/lib/streak";
 import type { ProofSession } from "@/lib/types";
 import { uploadFile, uploadWithProgress } from "@/lib/upload";
 import type { Session } from "./data";
@@ -86,16 +87,16 @@ export function useActions(s: Session) {
 
   /** createGroup onchain, then name it + get an invite code (/api/groups/register). */
   const createGroup = (name: string, isPublic = false) =>
-    track("createGroup", "starting your crew", async (set) => {
+    track("createGroup", "starting your wifie", async (set) => {
       const { account, pc, escrow } = ctx();
       const receipt = await byw.runTx(set, {
         simulate: () => pc.simulateContract({ account, address: escrow, abi: escrowAbi, functionName: "createGroup", args: [isPublic] }),
         send: () => byw.writeContractAsync({ address: escrow, abi: escrowAbi, functionName: "createGroup", args: [isPublic], chainId: activeChain.id }),
-        done: "crew created.",
+        done: "wifie created.",
       });
       if (!receipt) return null;
       const [event] = parseEventLogs({ abi: escrowAbi, eventName: "GroupCreated", logs: receipt.logs });
-      set({ status: "working", step: "naming your crew…", phase: "sending", hash: receipt.transactionHash });
+      set({ status: "working", step: "naming your wifie…", phase: "sending", hash: receipt.transactionHash });
       const res = await byw.api<{ invitePath: string; group: { id: number } }>("/api/groups/register", {
         body: { txHash: receipt.transactionHash, name },
       });
@@ -121,8 +122,8 @@ export function useActions(s: Session) {
       return receipt ? true : null;
     }, true);
 
-  /** Optional avatar (resized to 512px JPEG) + @name -> /api/profile. Not a transaction. */
-  const saveProfile = (username: string, avatar: File | null) =>
+  /** Optional avatar (resized to 512px JPEG) + @name (+ the 18+ confirmation) -> /api/profile. Not a transaction. */
+  const saveProfile = (username: string, avatar: File | null, ageConfirmed?: boolean) =>
     track("profile", "saving you", async (set) => {
       let avatarPath: string | undefined;
       if (avatar) {
@@ -131,7 +132,7 @@ export function useActions(s: Session) {
         avatarPath = await uploadFile(byw, "avatar", small);
       }
       set({ status: "working", step: "saving…", phase: "prepare" });
-      await byw.api("/api/profile", { body: { username, avatarPath } });
+      await byw.api("/api/profile", { body: { username, avatarPath, ...(ageConfirmed ? { ageConfirmed: true } : {}) } });
       await byw.syncNow();
       set({ status: "done", message: `hey @${username}.` });
       return true;
@@ -217,12 +218,34 @@ export function useActions(s: Session) {
         return byw.runTx(set, {
           simulate: () => pc.simulateContract({ account, address: escrow, abi: escrowAbi, functionName: "submitProof", args }),
           send: () => byw.writeContractAsync({ address: escrow, abi: escrowAbi, functionName: "submitProof", args, chainId: activeChain.id }),
-          done: "proof is in. your crew votes now.",
+          done: "proof is in. your wifie votes now.",
         });
       },
     );
 
-  return { busy, accept, settle, cancel, vote, createGroup, joinGroup, saveProfile, createDare, startProofSession, submitCapture };
+  /** Streak freeze: burn FREEZE_COST on the $wif token from your wallet, then record it for `week`. */
+  const freezeStreak = (week: string) =>
+    track(
+      "freeze",
+      "saving your streak",
+      async (set) => {
+        const { account, pc } = ctx();
+        const receipt = await byw.runTx(set, {
+          simulate: () => pc.simulateContract({ account, address: tokenAddress, abi: tokenAbi, functionName: "burn", args: [FREEZE_COST_WEI] }),
+          send: () => byw.writeContractAsync({ address: tokenAddress, abi: tokenAbi, functionName: "burn", args: [FREEZE_COST_WEI], chainId: activeChain.id }),
+          done: `burned ${FREEZE_COST_TOKENS.toLocaleString("en-US")} $wif.`,
+        });
+        if (!receipt) return null;
+        set({ status: "working", step: "saving your streak…", phase: "sending", hash: receipt.transactionHash });
+        await byw.api("/api/streak/freeze", { body: { txHash: receipt.transactionHash, week } });
+        await byw.syncNow();
+        set({ status: "done", hash: receipt.transactionHash, message: "streak saved. keep it going." });
+        return true;
+      },
+      true,
+    );
+
+  return { busy, freezeStreak, accept, settle, cancel, vote, createGroup, joinGroup, saveProfile, createDare, startProofSession, submitCapture };
 }
 
 export type Actions = ReturnType<typeof useActions>;

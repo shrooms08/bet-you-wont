@@ -1,7 +1,7 @@
 // Response shapes of our API routes (see PHASE3C1_REPORT.md). Shared by the app, the dev harness
 // and the ?mock=1 fixtures.
 
-export type PublicProfile = { wallet: string; username: string | null; avatarUrl: string | null; ringColor: string | null };
+export type PublicProfile = { wallet: string; username: string | null; avatarUrl: string | null; ringColor: string | null; streak?: number };
 
 export type MyGroup = {
   id: number;
@@ -14,7 +14,35 @@ export type MyGroup = {
   members?: PublicProfile[]; // up to 5, for avatar stacks
 };
 
-export type Me = { wallet: string; wallets: string[]; profile: PublicProfile | null; groups: MyGroup[] };
+/** Dare Score + streak stats (wei amounts as decimal strings). */
+export type Stats = {
+  score: number;
+  scoreWeek: number;
+  currentStreak: number;
+  bestStreak: number;
+  weekQualified: boolean;
+  daresDone: number;
+  daresDared: number;
+  wifWon: string;
+  wifBurned: string;
+  freezeOffer: { week: string; streak: number } | null;
+};
+
+export type Me = {
+  wallet: string;
+  wallets: string[];
+  profile: (PublicProfile & { ageConfirmed?: boolean }) | null;
+  groups: MyGroup[];
+  stats?: Stats;
+};
+
+export type ProofTile = { dareId: number; state: string; outcome: string; kind: "photo" | "video" | null; thumb: string | null };
+export type UserPage = { me: boolean; profile: PublicProfile; stats: Stats; did: ProofTile[]; dared: ProofTile[] };
+export type LeaderRow = { rank: number; points: number; person: PublicProfile };
+export type Leaderboard = { period: "week" | "all"; rows: LeaderRow[] };
+export type HistoryItem =
+  | { type: "dare"; dareId: number; text: string | null; role: "creator" | "doer"; outcome: string; kind: "won" | "refunded" | "lost" | "none"; amount: string; burned: string; tx: string | null; at: string | null }
+  | { type: "freeze"; week: string; amount: string; tx: string; at: string };
 
 export type DareView = {
   id: number;
@@ -97,6 +125,7 @@ export type FeedPage = { items: FeedItem[]; nextCursor: string | null };
 /** GET /api/dares/<id> */
 export type DareDetail = {
   viewer: string;
+  myPoints?: number;
   member: boolean;
   group: { id: number; name: string | null; isPublic: boolean; inviteCode: string | null; memberCount: number };
   dare: DareView;

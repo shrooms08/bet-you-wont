@@ -1,4 +1,5 @@
 import { ownsWallet, requireCaller } from "@/server/auth";
+import { requireAdult } from "@/server/age";
 import { getDareOnchain } from "@/server/chain";
 import { proofHashOf } from "@/server/hashing";
 import { ApiError, ok, readJson, route } from "@/server/http";
@@ -22,6 +23,7 @@ async function download(path: string) {
 // returns its sha256 as the proofHash. The client then calls submitProof(dareId, proofHash).
 export const POST = route(async (request: Request) => {
   const caller = await requireCaller(request);
+  await requireAdult(caller);
   const body = bodySchema.parse(await readJson(request));
   await enforceRateLimit(`finalize:${caller.userId}`, 20, 3600, "Too many proof uploads.");
 

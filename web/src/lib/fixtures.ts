@@ -1,5 +1,5 @@
 // Fixture data for ?mock=1 (dev only). Shapes match the real API responses.
-import type { DareDetail, DareView, Feed, FeedItem, FeedPage, Home, InvitePreview, Me, MyGroup, PublicGroup, PublicProfile } from "./types";
+import type { DareDetail, DareView, Feed, FeedItem, FeedPage, HistoryItem, Home, InvitePreview, Leaderboard, Me, MyGroup, PublicGroup, PublicProfile, Stats, UserPage } from "./types";
 
 const WEI = BigInt("1000000000000000000");
 const wif = (n: number) => (BigInt(n) * WEI).toString();
@@ -8,18 +8,19 @@ const agoMin = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 
 export const MOCK_WALLET = "0x7a3f00000000000000000000000000000000c91e";
 
-const p = (username: string, ringColor: string, n: number): PublicProfile => ({
+const p = (username: string, ringColor: string, n: number, streak = 0): PublicProfile => ({
   wallet: `0x${n.toString(16).padStart(40, "0")}`,
   username,
   avatarUrl: null,
   ringColor,
+  streak,
 });
 
-export const ZEE: PublicProfile = { wallet: MOCK_WALLET, username: "zee", avatarUrl: null, ringColor: "#7B5CE6" };
+export const ZEE: PublicProfile = { wallet: MOCK_WALLET, username: "zee", avatarUrl: null, ringColor: "#7B5CE6", streak: 2 };
 const ADA = p("ada", "#C3B4F4", 1);
 const KEMI = p("kemi", "#B19EF0", 2);
-const DAYO = p("dayo", "#B8DA3C", 3);
-const TOBI = p("tobi", "#7B5CE6", 4);
+const DAYO = p("dayo", "#B8DA3C", 3, 3);
+const TOBI = p("tobi", "#7B5CE6", 4, 4);
 const NO_NAME: PublicProfile = { wallet: "0x43d86c35390f2b1ab9a9bde01bae4f2336771078", username: null, avatarUrl: null, ringColor: null };
 
 const FLAGS = { hasVoted: false, canAccept: false, canSubmitProof: false, canVote: false, canSettle: false, canCancel: false, settleOutcome: "None" };
@@ -199,8 +200,27 @@ const GROUPS: MyGroup[] = [
   { id: 1, name: null, isPublic: true, isCreator: false, inviteCode: null, memberCount: 318, liveDareCount: 16, members: [ADA, TOBI, DAYO, KEMI] },
 ];
 
-export function mockMe(mode: "full" | "empty" | "external"): Me {
-  return { wallet: MOCK_WALLET, wallets: [MOCK_WALLET], profile: ZEE, groups: mode === "empty" ? [] : GROUPS };
+export const MOCK_STATS: Stats = {
+  score: 1240,
+  scoreWeek: 0,
+  currentStreak: 2,
+  bestStreak: 5,
+  weekQualified: false,
+  daresDone: 9,
+  daresDared: 14,
+  wifWon: wif(61500),
+  wifBurned: wif(5250),
+  freezeOffer: null,
+};
+
+export function mockMe(mode: "full" | "empty" | "external", ageConfirmed = true): Me {
+  return {
+    wallet: MOCK_WALLET,
+    wallets: [MOCK_WALLET],
+    profile: { ...ZEE, ageConfirmed },
+    groups: mode === "empty" ? [] : GROUPS,
+    stats: mode === "empty" ? { ...MOCK_STATS, score: 0, currentStreak: 0, bestStreak: 0, daresDone: 0, daresDared: 0, wifWon: "0", wifBurned: "0" } : MOCK_STATS,
+  };
 }
 
 export function mockHome(mode: "full" | "empty" | "external"): Home {
@@ -243,7 +263,25 @@ export const MOCK_PUBLIC_GROUP: PublicGroup = {
 
 export const MOCK_BALANCES = { eth: BigInt("4100000000000000"), wif: BigInt(42000) * WEI };
 
-const ALL_DARES = [D_MINE_OPEN, D_DARED_YOU, D_VOTE, D_OPEN_ANYONE, D_ACCEPTED_MINE, D_ACCEPTED_OTHER, D_SETTLE, D_PASSED, D_FAILED, D_EXPIRED, D_CANCELLED];
+const D_PASSED_MINE = dare({
+  id: 45,
+  text: "sing the national anthem on a crowded train",
+  creator: KEMI,
+  target: ZEE,
+  doer: ZEE,
+  amount: wif(10000),
+  payout: wif(9500),
+  burned: wif(500),
+  state: "Settled",
+  outcome: "Passed",
+  proofUrl: "/onboarding/o1-paid.png",
+  proofMime: "image/png",
+  proofKind: "photo",
+  reactionCount: 12,
+  createdAt: agoMin(60 * 5),
+});
+
+const ALL_DARES = [D_PASSED_MINE, D_MINE_OPEN, D_DARED_YOU, D_VOTE, D_OPEN_ANYONE, D_ACCEPTED_MINE, D_ACCEPTED_OTHER, D_SETTLE, D_PASSED, D_FAILED, D_EXPIRED, D_CANCELLED];
 
 /** Dare detail fixtures. Ids: 42/41/39 open, 38 accepted (yours), 44 accepted (someone else),
  *  40 voting, 37 ready to settle, 36 passed, 35 failed, 34 expired, 33 cancelled. */
@@ -251,6 +289,7 @@ export function mockDare(id: number): DareDetail {
   const d = ALL_DARES.find((x) => x.id === id) ?? D_VOTE;
   return {
     viewer: MOCK_WALLET,
+    myPoints: d.id === 45 ? 125 : 0,
     member: true,
     group: { id: 7, name: "lagos crew", isPublic: false, inviteCode: "k7m2p9xq4h", memberCount: 5 },
     dare: d,
@@ -274,3 +313,29 @@ export function mockFeedPage(mode: "full" | "empty" | "external"): FeedPage {
     nextCursor: null,
   };
 }
+
+const tile = (d: DareView) => ({ dareId: d.id, state: d.state, outcome: d.outcome, kind: "photo" as const, thumb: d.proofUrl });
+
+export function mockUser(username: string): UserPage {
+  const isMe = username === "zee";
+  const person = isMe ? ZEE : ([ADA, KEMI, DAYO, TOBI].find((x) => x.username === username) ?? DAYO);
+  return {
+    me: isMe,
+    profile: person,
+    stats: isMe ? MOCK_STATS : { ...MOCK_STATS, score: 860, currentStreak: person.streak ?? 0, bestStreak: 4, daresDone: 6, daresDared: 3 },
+    did: isMe ? [tile(D_PASSED_MINE), tile(D_VOTE), tile(D_PASSED), tile(D_SETTLE)] : [tile(D_VOTE), tile(D_PASSED)],
+    dared: isMe ? [tile(D_PASSED), tile(D_SETTLE)] : [tile(D_PASSED_MINE)],
+  };
+}
+
+export function mockLeaderboard(period: "week" | "all"): Leaderboard {
+  const pts = period === "week" ? [150, 110, 45, 5, 0] : [1240, 860, 410, 120, 40];
+  return { period, rows: [ZEE, DAYO, TOBI, ADA, KEMI].map((person, i) => ({ rank: i + 1, points: pts[i], person })) };
+}
+
+export const MOCK_HISTORY: HistoryItem[] = [
+  { type: "dare", dareId: 45, text: D_PASSED_MINE.text, role: "doer", outcome: "Passed", kind: "won", amount: wif(9500), burned: "0", tx: `0x${"ab".repeat(32)}`, at: agoMin(60 * 5) },
+  { type: "freeze", week: "2026-W44", amount: wif(2000), tx: `0x${"cd".repeat(32)}`, at: agoMin(60 * 30) },
+  { type: "dare", dareId: 35, text: D_FAILED.text, role: "creator", outcome: "Failed", kind: "refunded", amount: wif(4500), burned: wif(500), tx: `0x${"ef".repeat(32)}`, at: agoMin(60 * 50) },
+  { type: "dare", dareId: 33, text: "eat a raw onion like an apple", role: "creator", outcome: "Passed", kind: "lost", amount: wif(1000), burned: wif(50), tx: null, at: agoMin(60 * 120) },
+];

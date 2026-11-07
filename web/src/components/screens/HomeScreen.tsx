@@ -10,6 +10,7 @@ import { useMockMode, withMock } from "@/lib/mock";
 import { storiesFrom } from "@/lib/stories";
 import { AppShell } from "../app/AppShell";
 import { CrewCard, JoinPublicCard, StartGroupCard } from "../app/Crews";
+import { StreakBanner } from "../app/Score";
 import { WaitingCard, waitingItems } from "../app/WaitingCard";
 import { FeedList, StoriesRow } from "../feed/FeedPosts";
 import { PillLink } from "../ui/PillButton";
@@ -44,6 +45,7 @@ function HomeMain({ s }: { s: Session }) {
   return (
     <div className="mx-auto flex w-full max-w-[600px] flex-col gap-6">
       <TopBar s={s} />
+      <StreakBanner s={s} actions={actions} now={now} />
       <StoriesRow stories={stories} />
       <FeedList
         s={s}
@@ -52,7 +54,7 @@ function HomeMain({ s }: { s: Session }) {
         empty={
           home.isSuccess && groups.length === 0 ? (
             <div className="flex flex-col gap-5">
-              <EmptyState title="no crew yet" body="dares need friends. start your own crew or jump into the public one." />
+              <EmptyState title="no wifie yet" body="dares need friends. start your own wifie or jump into the public one." />
               <JoinPublicCard s={s} actions={actions} onJoined={openGroup} />
               <StartGroupCard actions={actions} onCreated={openGroup} />
             </div>
@@ -67,7 +69,7 @@ function HomeMain({ s }: { s: Session }) {
   );
 }
 
-/** Desktop right column: "waiting on you" list and your crews. */
+/** Desktop right column: "waiting on you" list and your wifies. */
 function HomeRight({ s }: { s: Session }) {
   const home = useHome(s);
   const actions = useActions(s);
@@ -84,8 +86,8 @@ function HomeRight({ s }: { s: Session }) {
         </section>
       )}
       {(home.data?.groups.length ?? 0) > 0 && (
-        <section className="flex flex-col gap-3" aria-label="your crews">
-          <SectionLabel>your crews</SectionLabel>
+        <section className="flex flex-col gap-3" aria-label="your wifies">
+          <SectionLabel>your wifies</SectionLabel>
           {home.data!.groups.map((g) => (
             <CrewCard key={g.id} g={g} />
           ))}

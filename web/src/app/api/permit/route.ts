@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { requireAdult } from "@/server/age";
 import type { Address } from "viem";
 import { ownsWallet, requireCaller } from "@/server/auth";
 import { getGroupOnchain, groupExists, isMemberOnchain } from "@/server/chain";
@@ -16,6 +17,7 @@ const sameCode = (a: string, b: string) =>
 // Public groups: any logged-in user. Private groups: only with the group's invite code.
 export const POST = route(async (request: Request) => {
   const caller = await requireCaller(request);
+  await requireAdult(caller);
   const body = permitSchema.parse(await readJson(request));
   if (body.address && !ownsWallet(caller, body.address)) throw new ApiError(403, "That wallet is not linked to your account.");
   const account: Address = body.address ?? caller.wallet;

@@ -1,4 +1,5 @@
 import { parseEventLogs, type TransactionReceipt } from "viem";
+import { requireAdult } from "@/server/age";
 import { escrowAbi, escrowAddress } from "@/lib/contracts";
 import { ownsWallet, requireCaller } from "@/server/auth";
 import { publicClient } from "@/server/chain";
@@ -15,6 +16,7 @@ import { INVITE_ALPHABET, registerGroupSchema } from "@/server/validation";
 // Calling it again renames the group and keeps the same invite code.
 export const POST = route(async (request: Request) => {
   const caller = await requireCaller(request);
+  await requireAdult(caller);
   const body = registerGroupSchema.parse(await readJson(request));
   await enforceRateLimit(`register:${caller.userId}`, 20, 3600, "Too many group registrations.");
 

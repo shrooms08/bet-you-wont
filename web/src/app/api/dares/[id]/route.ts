@@ -5,6 +5,8 @@ import { ApiError, getRoute, ok } from "@/server/http";
 import { DARE_COLUMNS, profilesByWallet, toPublic, type DareRow } from "@/server/queries";
 import { check, db } from "@/server/supabase";
 import { sync } from "@/server/sync";
+import { pointsFromDare } from "@/server/score";
+import { scoreSnapshot } from "@/server/stats";
 import { idSchema } from "@/server/validation";
 
 async function loadDare(id: string) {
@@ -53,8 +55,12 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
     readOnlyGroups: access.member ? undefined : new Set([groupId]),
   });
 
+  // "+125 score" on the result screen: what this dare earned the viewer (after their multiplier)
+  const myPoints = dare.state === "Settled" ? pointsFromDare((await scoreSnapshot()).events, Number(dare.id), me) : 0;
+
   return ok({
     viewer: me,
+    myPoints,
     member: access.member,
     group: {
       id: groupId,

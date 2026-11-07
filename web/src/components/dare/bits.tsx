@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { formatWif, handle } from "@/lib/format";
 import { springs } from "@/lib/motion";
 import type { DareView } from "@/lib/types";
+import type { Session } from "@/hooks/data";
+import { useShareDare } from "../app/Sheets";
 import { ShareIcon } from "../ui/icons";
 
 /** 🔥 toggle with a count. Optimistic (the caller's mutation patches caches). */
@@ -28,23 +30,24 @@ export function ReactionButton({ reacted, count, onToggle, disabled }: { reacted
   );
 }
 
-/** Copies the dare's link (the share card comes in 3c-2b-2). */
-export function ShareButton({ dareId, label = false }: { dareId: number; label?: boolean }) {
-  const [copied, setCopied] = useState(false);
+/** Share a dare: native file share with the 1080x1920 card where supported, else the share sheet. */
+export function ShareButton({ s, dareId, text, label = false }: { s: Session; dareId: number; text: string | null; label?: boolean }) {
+  const { share, busy, node } = useShareDare(s);
   return (
-    <button
-      type="button"
-      onClick={async () => {
-        await navigator.clipboard.writeText(`${window.location.origin}/d/${dareId}`);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1800);
-      }}
-      aria-label={copied ? "link copied" : "copy link to this dare"}
-      className="flex min-h-11 items-center gap-1.5 rounded-full border-[3px] border-line bg-surface px-3 text-[15px] font-extrabold"
-    >
-      <ShareIcon size={18} />
-      {(label || copied) && <span aria-live="polite">{copied ? "copied" : "share"}</span>}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => void share(dareId, text)}
+        disabled={busy}
+        aria-label="share this dare"
+        aria-busy={busy || undefined}
+        className="flex min-h-11 items-center gap-1.5 rounded-full border-[3px] border-line bg-surface px-3 text-[15px] font-extrabold disabled:opacity-60"
+      >
+        {busy ? <span className="block h-4 w-4 animate-byw-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /> : <ShareIcon size={18} />}
+        {label && <span>share</span>}
+      </button>
+      {node}
+    </>
   );
 }
 

@@ -32,8 +32,10 @@ export function route<A extends unknown[]>(handler: (...args: A) => Promise<Resp
     } catch (err) {
       if (err instanceof ApiError) return json(err.status, { error: err.message });
       if (err instanceof ZodError) return json(400, { error: firstIssue(err) });
-      console.error("[api] unexpected error:", err instanceof Error ? err.message : String(err));
-      return json(500, { error: "Something went wrong on our side. Try again." });
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[api] unexpected error:", message);
+      // development only: show the cause (production never leaks internals)
+      return json(500, { error: "Something went wrong on our side. Try again.", ...(process.env.NODE_ENV !== "production" ? { debug: message.slice(0, 300) } : {}) });
     }
   };
 }

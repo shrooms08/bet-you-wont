@@ -9,6 +9,7 @@ import { useMockMode, withMock } from "@/lib/mock";
 import type { Story } from "@/lib/stories";
 import type { FeedItem } from "@/lib/types";
 import { VoteBar } from "../app/DareCard";
+import { PersonLink, StreakFlame } from "../app/People";
 import { DareText } from "../app/DareText";
 import { AutoVideo, ReactionButton, resultLine, ShareButton } from "../dare/bits";
 import { DoubleTapBurst } from "../motion/DoubleTapBurst";
@@ -58,9 +59,16 @@ function PostHeader({ it, now }: { it: FeedItem; now: number }) {
   return (
     <div className="flex items-center justify-between gap-3 px-1">
       <span className="flex min-w-0 items-center gap-2.5">
-        <Avatar person={who} size={36} />
+        <PersonLink username={who?.username}>
+          <Avatar person={who} size={36} />
+        </PersonLink>
         <span className="min-w-0 leading-tight">
-          <span className="block truncate text-[15px] font-extrabold">{handle(who)}</span>
+          <span className="flex items-center gap-1.5">
+            <PersonLink username={who?.username} className="truncate text-[15px] font-extrabold">
+              {handle(who)}
+            </PersonLink>
+            <StreakFlame n={who?.streak} />
+          </span>
           <span className="block truncate text-[13px] text-muted">
             in {groupName(it.groupId, it.groupName)}
             {timeAgo(it.activityAt ?? it.createdAt, now) ? ` · ${timeAgo(it.activityAt ?? it.createdAt, now)}` : ""}
@@ -96,7 +104,7 @@ function MediaPost({ it, s, actions, now }: { it: FeedItem; s: Session; actions:
       </DoubleTapBurst>
       <div className="flex items-center gap-2 px-1">
         <ReactionButton reacted={!!it.reacted} count={it.reactionCount ?? 0} disabled={!canReact} onToggle={() => react.mutate(it.id)} />
-        <ShareButton dareId={it.id} />
+        <ShareButton s={s} dareId={it.id} text={it.text} />
         <span className="ml-auto">
           <Money wei={it.amount} size="sm" align="right" />
         </span>

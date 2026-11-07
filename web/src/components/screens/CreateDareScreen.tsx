@@ -106,8 +106,8 @@ function CreateMain({ s }: { s: Session }) {
 
   if (s.me.isSuccess && groups.length === 0) {
     return (
-      <EmptyState title="you need a crew first" body="dares happen inside crews. start one or join the public crowd.">
-        <PillLink href={withMock("/crews", mock)}>find a crew</PillLink>
+      <EmptyState title="you need a wifie first" body="dares happen inside wifies. start one or join the public one.">
+        <PillLink href={withMock("/wifies", mock)}>find a wifie</PillLink>
       </EmptyState>
     );
   }
@@ -125,7 +125,7 @@ function CreateMain({ s }: { s: Session }) {
         <span className="block">won&apos;t.</span>
       </h1>
 
-      <Field label="crew">
+      <Field label="which wifie?">
         <div className="flex flex-wrap gap-2">
           {groups.map((g) => (
             <Chip key={g.id} on={g.id === gid} onClick={() => (setGroupId(g.id), setTarget(null))}>
@@ -137,7 +137,7 @@ function CreateMain({ s }: { s: Session }) {
 
       {tooSmall ? (
         <div className="raised flex flex-col gap-3 !border-danger p-5" role="alert">
-          <p className="text-[20px] font-extrabold tracking-[-0.04em]">a dare needs a witness: invite {3 - memberCount} more friend{3 - memberCount === 1 ? "" : "s"}</p>
+          <p className="text-[20px] font-extrabold tracking-[-0.04em]">a dare needs a witness: invite {3 - memberCount} more friend{3 - memberCount === 1 ? "" : "s"} to this wifie</p>
           <p className="text-[15px] text-muted">someone other than you and the person you dare has to be able to vote.</p>
           <div>
             <InviteButton code={feed.data?.group.inviteCode ?? null} groupLabel={groupName(gid ?? 0, feed.data?.group.name)} />
@@ -163,7 +163,7 @@ function CreateMain({ s }: { s: Session }) {
           <Field label="who">
             <div data-hscroll className="flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]">
               <Chip on={target === null} onClick={() => setTarget(null)}>
-                anyone in the crew
+                anyone in the wifie
               </Chip>
               {members.map((m) => (
                 <Chip key={m.wallet} on={target === m.wallet} onClick={() => setTarget(m.wallet)} label={m.username ? `@${m.username}` : "member"}>

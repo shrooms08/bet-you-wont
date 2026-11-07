@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { requireAdult } from "@/server/age";
 import { requireCaller } from "@/server/auth";
 import { ApiError, ok, readJson, route } from "@/server/http";
 import { storagePathFor, UPLOAD_RULES } from "@/server/media";
@@ -11,6 +12,7 @@ import { uploadRequestSchema } from "@/server/validation";
 export const POST = route(async (request: Request) => {
   const caller = await requireCaller(request);
   const body = uploadRequestSchema.parse(await readJson(request));
+  await requireAdult(caller, { allowNoProfile: body.kind === "avatar" });
   await enforceRateLimit(`upload-url:${caller.userId}`, 30, 3600, "Too many uploads.");
 
   const rule = UPLOAD_RULES[body.kind];

@@ -13,6 +13,8 @@ import { useMockMode, withMock } from "@/lib/mock";
 import { springs } from "@/lib/motion";
 import type { DareDetail } from "@/lib/types";
 import { AppShell } from "../app/AppShell";
+import { StreakFlame } from "../app/People";
+import { ScorePop } from "../app/Score";
 import { VoteBar } from "../app/DareCard";
 import { DareText } from "../app/DareText";
 import { ProofFlow } from "../camera/ProofFlow";
@@ -72,7 +74,7 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
     return (
       <EmptyState
         title={status === 404 && msg.includes("private") ? "this dare is private" : status === 404 ? "no such dare" : "couldn't load this dare"}
-        body={status === 404 && msg.includes("private") ? "only people in its crew can see it." : "check the link, or try again in a moment."}
+        body={status === 404 && msg.includes("private") ? "only people in its wifie can see it." : "check the link, or try again in a moment."}
       >
         <PillLink href={withMock("/home", mock)}>home</PillLink>
       </EmptyState>
@@ -83,7 +85,7 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
   const busyHere = actions.busy?.endsWith(`:${d.id}`) ?? false;
   const doerIsMe = d.doer?.wallet === data.viewer;
   const canReact = data.member || data.group.isPublic; // same rule as POST /api/reactions
-  const target = d.target ? handle(d.target) : "anyone in the crew";
+  const target = d.target ? handle(d.target) : "anyone in the wifie";
   const payoutTokens = d.payout ? Math.round(Number(formatUnits(BigInt(d.payout), 18))) : null;
 
   return (
@@ -109,7 +111,7 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
         <div className="raised flex flex-wrap items-center justify-between gap-3 !border-primary p-4" role="note">
           <p className="text-[15px] font-extrabold">you&apos;re watching. join {crew} to dare and vote.</p>
           <PillButton size="sm" loading={actions.busy === `join:${data.group.id}`} onClick={() => void actions.joinGroup(data.group.id).then((ok) => ok && q.refetch())}>
-            join the crew
+            join the wifie
           </PillButton>
         </div>
       )}
@@ -238,9 +240,14 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
               <StampSlam outcome={kind as StampOutcome} size={170} />
             </div>
           )}
-          <p className={`text-[22px] font-extrabold leading-tight tracking-[-0.04em] ${d.proofUrl ? "pt-6" : ""}`}>{resultLine(d)}</p>
+          <div className={`flex flex-col gap-3 ${d.proofUrl ? "pt-6" : ""}`}>
+            <ScorePop points={data.myPoints ?? 0} />
+            <p className="text-[22px] font-extrabold leading-tight tracking-[-0.04em]">
+              {resultLine(d)} {d.outcome === "Passed" && <StreakFlame n={d.doer?.streak} />}
+            </p>
+          </div>
           <div className="flex flex-wrap gap-3">
-            <ShareButton dareId={d.id} label />
+            <ShareButton s={s} dareId={d.id} text={d.text} label />
             <PillLink href={withMock(`/new?group=${data.group.id}${payoutTokens ? `&amount=${payoutTokens}` : ""}`, mock)} variant="secondary" size="sm">
               re-dare
             </PillLink>
@@ -254,7 +261,7 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
       {d.proofUrl && (
         <div className="flex items-center gap-3">
           <ReactionButton reacted={!!d.reacted} count={d.reactionCount ?? 0} disabled={!canReact} onToggle={() => react.mutate(d.id)} />
-          {!settled && <ShareButton dareId={d.id} />}
+          {!settled && <ShareButton s={s} dareId={d.id} text={d.text} />}
         </div>
       )}
 

@@ -32,7 +32,7 @@ function Demo({ title, hint, children, wide }: { title: string; hint?: string; c
 }
 
 function NavGlide() {
-  const items = ["home", "crews", "new", "wallet", "profile"];
+  const items = ["home", "wifies", "new", "wallet", "profile"];
   const [active, setActive] = useState("home");
   return (
     <div className="flex flex-wrap gap-2">
@@ -144,7 +144,7 @@ export function MotionGallery() {
             replay
           </PillButton>
           <StaggerList key={`l${replay}`} className="flex flex-col gap-2">
-            {["waiting on you", "your crews", "the dare board"].map((t) => (
+            {["waiting on you", "your wifies", "the dare board"].map((t) => (
               <StaggerItem key={t} className="rounded-full border-[3px] border-line bg-inset px-4 py-2 text-[15px]">
                 {t}
               </StaggerItem>

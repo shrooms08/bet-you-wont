@@ -82,6 +82,18 @@ export function useByw() {
     [getAccessToken, address],
   );
 
+  /** Authenticated binary GET (e.g. the share-card PNG). */
+  const apiBlob = useCallback(
+    async (path: string): Promise<Blob> => {
+      const token = await getAccessToken();
+      if (!token) throw new Error("No Privy access token; log in again.");
+      const res = await fetch(path, { cache: "no-store", headers: { Authorization: `Bearer ${token}`, ...(address ? { "X-Wallet-Address": address } : {}) } });
+      if (!res.ok) throw new HttpError(res.status, `${path} → ${res.status}`);
+      return res.blob();
+    },
+    [getAccessToken, address],
+  );
+
   /** Pull new chain events into the DB, then refresh every query on the page. */
   const syncNow = useCallback(async () => {
     await fetch("/api/sync", { cache: "no-store" }).catch(() => null);
@@ -134,6 +146,7 @@ export function useByw() {
     writeContractAsync,
     ensureChain,
     api,
+    apiBlob,
     syncNow,
     runTx,
   };

@@ -64,7 +64,7 @@ describe("people and groups", () => {
   it("the public group gets its name when none is stored", () => {
     expect(groupName(1, null)).toBe(PUBLIC_GROUP_NAME);
     expect(groupName(1, "custom")).toBe("custom");
-    expect(groupName(9, null)).toBe("crew #9");
+    expect(groupName(9, null)).toBe("wifie #9");
   });
   it("invite codes from links or raw codes", () => {
     expect(inviteCodeFrom("https://betyouwont.app/i/k7m2p9xq4h")).toBe("k7m2p9xq4h");
@@ -76,7 +76,7 @@ describe("people and groups", () => {
 
 describe("plainError", () => {
   it("maps escrow custom errors to plain words", () => {
-    expect(plainError("Reverted: GroupTooSmall")).toBe("a crew needs at least 3 people before anyone can dare.");
+    expect(plainError("Reverted: GroupTooSmall")).toBe("a wifie needs at least 3 people before anyone can dare.");
     expect(plainError("Reverted: CreatorCannotVote")).toMatch(/your friends decide/);
   });
   it("wallet, gas, rate limit, network and API messages", () => {

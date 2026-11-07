@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requireAdult } from "@/server/age";
 import { ownsWallet, requireCaller } from "@/server/auth";
 import { getDareOnchain } from "@/server/chain";
 import { ApiError, ok, readJson, route } from "@/server/http";
@@ -13,6 +14,7 @@ const ACCEPTED = 2;
 // deadline. Returns a 15-minute capture session whose code is burned into the photo/video.
 export const POST = route(async (request: Request) => {
   const caller = await requireCaller(request);
+  await requireAdult(caller);
   const body = z.object({ dareId: idSchema }).parse(await readJson(request));
   await enforceRateLimit(`proof-session:${caller.userId}`, 30, 3600, "Too many camera sessions.");
 
