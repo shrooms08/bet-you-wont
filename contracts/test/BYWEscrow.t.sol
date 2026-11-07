@@ -116,6 +116,16 @@ abstract contract BYWBase is PermitSigner {
         }
     }
 
+    /// @dev Same as `_group`, but the group is public (the public bounty cap applies).
+    function _publicGroup(uint256 size) internal returns (uint256 gid) {
+        vm.prank(alice);
+        gid = escrow.createGroup(true);
+        address[5] memory others = [bob, carol, dave, erin, frank];
+        for (uint256 i; i + 1 < size; ++i) {
+            _join(gid, others[i]);
+        }
+    }
+
     function _dare(uint256 gid, address target, uint256 amount) internal returns (uint256 id) {
         vm.prank(alice);
         id = escrow.createDare(gid, target, amount, DO, WIN, META);
@@ -162,6 +172,7 @@ contract BYWEscrowTest is BYWBase {
         assertEq(escrow.owner(), owner);
         assertEq(escrow.inviteSigner(), signer);
         assertEq(escrow.maxBounty(), 500_000e18);
+        assertEq(escrow.publicMaxBounty(), 20_000e18);
         assertEq(escrow.PASS_BURN_BPS(), 500);
         assertEq(escrow.FAIL_BURN_BPS(), 1000);
         assertEq(escrow.HARD_CAP(), 5_000_000e18);
@@ -198,8 +209,8 @@ contract BYWEscrowTest is BYWBase {
     function test_createGroup() public {
         vm.expectEmit(true, true, false, true);
         emit BYWEscrow.GroupCreated(1, alice, false);
-        vm.expectEmit(true, true, false, false);
-        emit BYWEscrow.MemberJoined(1, alice);
+        vm.expectEmit(true, true, false, true);
+        emit BYWEscrow.MemberJoined(1, alice, 1);
         vm.prank(alice);
         uint256 gid = escrow.createGroup(false);
 
@@ -211,7 +222,8 @@ contract BYWEscrowTest is BYWBase {
         assertEq(g.memberCount, 1);
         assertEq(g.createdAt, block.timestamp);
         assertTrue(escrow.isMember(gid, alice));
-        assertEq(escrow.joinedAt(gid, alice), block.timestamp);
+        assertEq(escrow.memberJoinIndex(gid, alice), 1);
+        assertEq(escrow.memberJoinIndex(gid, bob), 0, "non-member has index 0");
 
         vm.prank(bob);
         assertEq(escrow.createGroup(true), 2);
@@ -229,13 +241,13 @@ contract BYWEscrowTest is BYWBase {
 
         uint256 deadline = block.timestamp + 10 minutes;
         bytes memory sig = _sig(gid, bob, deadline);
-        vm.expectEmit(true, true, false, false);
-        emit BYWEscrow.MemberJoined(gid, bob);
+        vm.expectEmit(true, true, false, true);
+        emit BYWEscrow.MemberJoined(gid, bob, 2);
         vm.prank(bob);
         escrow.joinGroup(gid, deadline, sig);
 
         assertTrue(escrow.isMember(gid, bob));
-        assertEq(escrow.joinedAt(gid, bob), block.timestamp);
+        assertEq(escrow.memberJoinIndex(gid, bob), 2);
         assertEq(escrow.getGroup(gid).memberCount, 2);
     }
 
@@ -467,7 +479,7 @@ contract BYWEscrowTest is BYWBase {
     function test_minGroup_eligibleIsOne() public {
         (, uint256 id) = _voting(3, AMT);
         assertEq(escrow.getDare(id).eligible, 1);
-        assertEq(escrow.getDare(id).membersAtProof, 3);
+        assertEq(escrow.getDare(id).voterSnapshot, 3);
     }
 
     // ------------------------------------------------------------------
@@ -494,6 +506,8 @@ contract BYWEscrowTest is BYWBase {
         assertEq(d.amount, AMT);
         assertEq(d.groupId, gid);
         assertEq(d.metaHash, META);
+        assertEq(d.voterSnapshot, 3);
+        assertEq(d.eligible, 0, "eligible is set on accept");
         _assertResolvable(id, false, BYWEscrow.Outcome.None);
 
         vm.expectEmit(true, true, false, true);
@@ -506,6 +520,7 @@ contract BYWEscrowTest is BYWBase {
         assertEq(d.doer, bob);
         assertEq(d.acceptedAt, block.timestamp);
         assertEq(d.proofDeadline, block.timestamp + DO);
+        assertEq(d.eligible, 1, "snapshot 3 - creator - doer");
         _assertResolvable(id, false, BYWEscrow.Outcome.None);
 
         vm.warp(block.timestamp + 3 hours);
@@ -687,12 +702,53 @@ contract BYWEscrowTest is BYWBase {
         assertEq(wif.balanceOf(bob), bob0 + AMT * 95 / 100);
     }
 
-    function test_zeroVotesAtVoteEnd_passes() public {
+    function test_zeroVotesAtVoteEnd_noVotesFullRefund() public {
         (, uint256 id) = _voting(6, AMT);
+        uint256 supply0 = wif.totalSupply();
+        uint256 alice0 = wif.balanceOf(alice);
+        uint256 bob0 = wif.balanceOf(bob);
+
+        uint64 voteEnd = escrow.getDare(id).voteEnd;
+        vm.warp(voteEnd); // still open at exactly voteEnd
+        _assertResolvable(id, false, BYWEscrow.Outcome.None);
+        vm.prank(outsider);
+        vm.expectRevert(BYWEscrow.NotResolvable.selector);
+        escrow.settle(id);
+
+        vm.warp(voteEnd + 1);
+        _assertResolvable(id, true, BYWEscrow.Outcome.NoVotes);
+        vm.expectEmit(true, true, false, true);
+        emit BYWEscrow.DareSettled(id, BYWEscrow.Outcome.NoVotes, alice, AMT, 0);
+        _settle(id);
+
+        assertEq(uint8(_outcome(id)), uint8(BYWEscrow.Outcome.NoVotes));
+        assertEq(wif.balanceOf(alice), alice0 + AMT, "creator gets exactly 100% back");
+        assertEq(wif.balanceOf(bob), bob0, "doer gets nothing");
+        assertEq(wif.totalSupply(), supply0, "nothing burned");
+        assertEq(wif.balanceOf(address(escrow)), 0);
+        assertEq(uint8(escrow.getDare(id).state), uint8(BYWEscrow.DareState.Settled));
+    }
+
+    function test_onePassVoteAtVoteEnd_decides() public {
+        (, uint256 id) = _voting(6, AMT); // eligible 4: one pass vote is no lock
+        _vote(id, carol, true);
+        _assertResolvable(id, false, BYWEscrow.Outcome.None);
         vm.warp(escrow.getDare(id).voteEnd + 1);
         _assertResolvable(id, true, BYWEscrow.Outcome.Passed);
+        uint256 bob0 = wif.balanceOf(bob);
         _settle(id);
-        assertEq(uint8(_outcome(id)), uint8(BYWEscrow.Outcome.Passed));
+        assertEq(wif.balanceOf(bob), bob0 + AMT * 95 / 100);
+    }
+
+    function test_oneFailVoteAtVoteEnd_decides() public {
+        (, uint256 id) = _voting(6, AMT);
+        _vote(id, carol, false);
+        _assertResolvable(id, false, BYWEscrow.Outcome.None);
+        vm.warp(escrow.getDare(id).voteEnd + 1);
+        _assertResolvable(id, true, BYWEscrow.Outcome.Failed);
+        uint256 alice0 = wif.balanceOf(alice);
+        _settle(id);
+        assertEq(wif.balanceOf(alice), alice0 + AMT * 90 / 100);
     }
 
     function test_moreFailThanPassAtVoteEnd_fails() public {
@@ -884,6 +940,7 @@ contract BYWEscrowTest is BYWBase {
     }
 
     function test_joinedAfterProof_cannotVote() public {
+        // joined after the dare was created (and after proof): outside the snapshot
         (uint256 gid, uint256 id) = _voting(3, AMT);
         vm.warp(block.timestamp + 5 minutes);
         _join(gid, dave);
@@ -894,20 +951,26 @@ contract BYWEscrowTest is BYWBase {
         assertEq(escrow.getDare(id).eligible, 1, "eligible unchanged by later joins");
     }
 
-    /// @dev A member who joins in the same block (same timestamp) right after proof is posted
-    ///      would pass a plain `joinedAt <= proofAt` check, but was not counted in `eligible`.
-    ///      The join-order snapshot rejects them.
-    function test_joinedSameBlockAfterProof_cannotVote() public {
-        (uint256 gid, uint256 id) = _voting(3, AMT);
-        _join(gid, dave);
-        assertEq(escrow.joinedAt(gid, dave), escrow.getDare(id).proofAt);
+    /// @dev A member who joins in the same block (same timestamp) right after the dare is created
+    ///      is outside the snapshot: the join index is exact, timestamps play no part.
+    function test_joinedSameBlockAfterCreate_cannotVote() public {
+        uint256 gid = _group(3);
+        uint256 id = _dare(gid, address(0), AMT);
+        _join(gid, dave); // same block
+        assertEq(escrow.memberJoinIndex(gid, dave), 4);
+        assertEq(escrow.getDare(id).voterSnapshot, 3);
+        vm.prank(bob);
+        escrow.acceptDare(id);
+        vm.prank(bob);
+        escrow.submitProof(id, PROOF);
 
         vm.prank(dave);
         vm.expectRevert(BYWEscrow.NotEligibleVoter.selector);
         escrow.vote(id, false);
     }
 
-    function test_memberWhoJoinedAfterDareButBeforeProof_canVote() public {
+    /// @dev Audit H-1: wallets added after the dare exists (even before proof) can never vote.
+    function test_joinedAfterCreateBeforeProof_cannotVote() public {
         uint256 gid = _group(3);
         uint256 id = _dare(gid, address(0), AMT);
         vm.prank(bob);
@@ -917,11 +980,86 @@ contract BYWEscrowTest is BYWBase {
         vm.prank(bob);
         escrow.submitProof(id, PROOF);
 
-        assertEq(escrow.getDare(id).eligible, 2); // carol + dave
-        _vote(id, dave, true); // 1*2 >= 2 -> pass locked
-        _assertResolvable(id, true, BYWEscrow.Outcome.Passed);
+        assertEq(escrow.getDare(id).eligible, 1, "only carol");
+        vm.prank(dave);
+        vm.expectRevert(BYWEscrow.NotEligibleVoter.selector);
+        escrow.vote(id, true);
+        _assertResolvable(id, false, BYWEscrow.Outcome.None);
+    }
+
+    /// @dev Audit H-1 attack: the doer joins after the dare and adds two wallets before proof. Those
+    ///      wallets cannot vote, and the honest snapshot members still decide (fail locks).
+    function test_sybilWalletsAfterCreate_cannotSwingVote() public {
+        uint256 gid = _publicGroup(4); // alice, bob, carol, dave
+        uint256 id = _dare(gid, address(0), AMT);
+        _join(gid, erin); // the attacker (doer), outside the snapshot
+        _join(gid, frank); // attacker's extra wallet
+        _join(gid, outsider); // attacker's extra wallet
+        vm.prank(erin);
+        escrow.acceptDare(id);
+        assertEq(escrow.getDare(id).eligible, 3, "bob, carol, dave (doer outside the snapshot)");
+        vm.prank(erin);
+        escrow.submitProof(id, PROOF);
+
+        vm.prank(frank);
+        vm.expectRevert(BYWEscrow.NotEligibleVoter.selector);
+        escrow.vote(id, true);
+        vm.prank(outsider);
+        vm.expectRevert(BYWEscrow.NotEligibleVoter.selector);
+        escrow.vote(id, true);
+        vm.prank(erin);
+        vm.expectRevert(BYWEscrow.NotEligibleVoter.selector);
+        escrow.vote(id, true);
+
+        _vote(id, bob, false);
+        _vote(id, carol, false); // 2*2 > 3 -> fail locked
+        _assertResolvable(id, true, BYWEscrow.Outcome.Failed);
+        uint256 alice0 = wif.balanceOf(alice);
         _settle(id);
-        assertEq(uint8(_outcome(id)), uint8(BYWEscrow.Outcome.Passed));
+        assertEq(wif.balanceOf(alice), alice0 + AMT * 90 / 100);
+    }
+
+    function test_doerInsideSnapshot_eligibleExcludesCreatorAndDoer() public {
+        uint256 gid = _group(5); // alice..erin
+        uint256 id = _dare(gid, address(0), AMT);
+        assertEq(escrow.getDare(id).voterSnapshot, 5);
+        vm.prank(bob);
+        escrow.acceptDare(id);
+        assertEq(escrow.getDare(id).eligible, 3); // carol, dave, erin
+    }
+
+    function test_doerOutsideSnapshot_eligibleExcludesOnlyCreator() public {
+        uint256 gid = _group(3); // alice, bob, carol
+        uint256 id = _dare(gid, address(0), AMT);
+        _join(gid, dave);
+        vm.prank(dave);
+        escrow.acceptDare(id);
+        assertEq(escrow.getDare(id).eligible, 2); // bob, carol
+        vm.prank(dave);
+        escrow.submitProof(id, PROOF);
+
+        // early pass lock with the new eligible: 1*2 >= 2
+        _vote(id, bob, true);
+        _assertResolvable(id, true, BYWEscrow.Outcome.Passed);
+        uint256 dave0 = wif.balanceOf(dave);
+        _settle(id);
+        assertEq(wif.balanceOf(dave), dave0 + AMT * 95 / 100);
+    }
+
+    function test_doerOutsideSnapshot_failLock() public {
+        uint256 gid = _group(4); // alice, bob, carol, dave
+        uint256 id = _dare(gid, address(0), AMT);
+        _join(gid, erin);
+        vm.prank(erin);
+        escrow.acceptDare(id);
+        assertEq(escrow.getDare(id).eligible, 3); // bob, carol, dave
+        vm.prank(erin);
+        escrow.submitProof(id, PROOF);
+
+        _vote(id, bob, false); // 1*2 > 3 is false
+        _assertResolvable(id, false, BYWEscrow.Outcome.None);
+        _vote(id, carol, false); // 2*2 > 3
+        _assertResolvable(id, true, BYWEscrow.Outcome.Failed);
     }
 
     function test_voteAfterVoteEnd_reverts() public {
@@ -1130,6 +1268,74 @@ contract BYWEscrowTest is BYWBase {
         escrow.createDare(gid, address(0), 2e18, DO, WIN, META);
     }
 
+    function test_publicCap_enforcedOnPublicGroups() public {
+        uint256 gid = _publicGroup(3);
+        vm.prank(alice);
+        vm.expectRevert(BYWEscrow.PublicBountyTooHigh.selector);
+        escrow.createDare(gid, address(0), 20_000e18 + 1, DO, WIN, META);
+
+        vm.prank(alice);
+        uint256 id = escrow.createDare(gid, address(0), 20_000e18, DO, WIN, META);
+        assertEq(escrow.getDare(id).amount, 20_000e18);
+    }
+
+    function test_publicCap_privateGroupsUnaffected() public {
+        uint256 gid = _group(3);
+        vm.prank(alice);
+        uint256 id = escrow.createDare(gid, address(0), 500_000e18, DO, WIN, META);
+        assertEq(escrow.getDare(id).amount, 500_000e18);
+    }
+
+    function test_publicCap_maxBountyStillApplies() public {
+        vm.prank(owner);
+        escrow.setPublicMaxBounty(1_000_000e18); // above maxBounty (500k)
+        uint256 gid = _publicGroup(3);
+        vm.prank(alice);
+        vm.expectRevert(BYWEscrow.AmountOutOfRange.selector);
+        escrow.createDare(gid, address(0), 600_000e18, DO, WIN, META);
+        vm.prank(alice);
+        escrow.createDare(gid, address(0), 500_000e18, DO, WIN, META);
+    }
+
+    function test_setPublicMaxBounty() public {
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
+        escrow.setPublicMaxBounty(1_000e18);
+
+        vm.startPrank(owner);
+        vm.expectRevert(BYWEscrow.InvalidMaxBounty.selector);
+        escrow.setPublicMaxBounty(5_000_000e18 + 1);
+        vm.expectRevert(BYWEscrow.InvalidMaxBounty.selector);
+        escrow.setPublicMaxBounty(1e18 - 1);
+
+        vm.expectEmit(false, false, false, true);
+        emit BYWEscrow.PublicMaxBountyUpdated(1e18);
+        escrow.setPublicMaxBounty(1e18);
+        vm.stopPrank();
+        assertEq(escrow.publicMaxBounty(), 1e18);
+
+        uint256 gid = _publicGroup(3);
+        vm.prank(alice);
+        vm.expectRevert(BYWEscrow.PublicBountyTooHigh.selector);
+        escrow.createDare(gid, address(0), 2e18, DO, WIN, META);
+        vm.prank(alice);
+        escrow.createDare(gid, address(0), 1e18, DO, WIN, META);
+
+        vm.prank(owner);
+        escrow.setPublicMaxBounty(5_000_000e18);
+        assertEq(escrow.publicMaxBounty(), 5_000_000e18);
+    }
+
+    function test_renounceOwnership_alwaysReverts() public {
+        vm.prank(owner);
+        vm.expectRevert(BYWEscrow.RenounceDisabled.selector);
+        escrow.renounceOwnership();
+        vm.prank(alice);
+        vm.expectRevert(BYWEscrow.RenounceDisabled.selector);
+        escrow.renounceOwnership();
+        assertEq(escrow.owner(), owner);
+    }
+
     function test_pause_onlyOwner() public {
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
@@ -1203,12 +1409,12 @@ contract BYWEscrowTest is BYWBase {
         escrow.cancelDare(idCancel);
         assertEq(wif.balanceOf(alice), alice0 + AMT);
 
-        // accept, proof, vote, settle work (erin joined before proof -> eligible 3)
+        // accept, proof, vote, settle work (erin joined after the dare -> eligible 2: carol, dave)
         vm.prank(bob);
         escrow.acceptDare(idVote);
         vm.prank(bob);
         escrow.submitProof(idVote, PROOF);
-        assertEq(escrow.getDare(idVote).eligible, 3);
+        assertEq(escrow.getDare(idVote).eligible, 2);
         _vote(idVote, carol, true);
         _vote(idVote, dave, true);
         _settle(idVote);
@@ -1432,6 +1638,29 @@ contract BYWEscrowFuzzTest is BYWBase {
         assertEq(wif.balanceOf(address(escrow)), 0);
     }
 
+    /// @dev Random late joiners: they never count toward eligible and can never vote.
+    function testFuzz_lateJoinersNeverVote(uint8 sizeSeed, uint8 lateSeed, bool doerIsLate) public {
+        uint256 size = bound(sizeSeed, 3, 5);
+        uint256 late = bound(lateSeed, 1, 3);
+        uint256 gid = _group(size);
+        uint256 id = _dare(gid, address(0), AMT);
+        address[3] memory lateJoiners = [makeAddr("l1"), makeAddr("l2"), makeAddr("l3")];
+        for (uint256 i; i < late; ++i) {
+            _join(gid, lateJoiners[i]);
+        }
+        address doer = doerIsLate ? lateJoiners[0] : bob;
+        vm.prank(doer);
+        escrow.acceptDare(id);
+        assertEq(escrow.getDare(id).eligible, doerIsLate ? size - 1 : size - 2);
+        vm.prank(doer);
+        escrow.submitProof(id, PROOF);
+        for (uint256 i = doerIsLate ? 1 : 0; i < late; ++i) {
+            vm.prank(lateJoiners[i]);
+            vm.expectRevert(BYWEscrow.NotEligibleVoter.selector);
+            escrow.vote(id, true);
+        }
+    }
+
     /// @dev Random group sizes and votes: outcome always matches the spec rules computed independently.
     function testFuzz_outcomeRules(uint8 sizeSeed, uint8 passSeed, uint8 failSeed, bool waitForEnd) public {
         uint256 size = bound(sizeSeed, 3, 6);
@@ -1457,11 +1686,14 @@ contract BYWEscrowFuzzTest is BYWBase {
         bool decided = passLock || failLock || waitForEnd;
         bool expectedPass = passLock ? true : failLock ? false : p >= f;
         BYWEscrow.Outcome expected = expectedPass ? BYWEscrow.Outcome.Passed : BYWEscrow.Outcome.Failed;
+        if (!passLock && !failLock && p + f == 0) expected = BYWEscrow.Outcome.NoVotes;
 
         if (decided) {
             _assertResolvable(id, true, expected);
+            uint256 supply0 = wif.totalSupply();
             _settle(id);
             assertEq(uint8(_outcome(id)), uint8(expected));
+            if (expected == BYWEscrow.Outcome.NoVotes) assertEq(wif.totalSupply(), supply0, "no-votes burns nothing");
         } else {
             _assertResolvable(id, false, BYWEscrow.Outcome.None);
             vm.expectRevert(BYWEscrow.NotResolvable.selector);
@@ -1502,6 +1734,7 @@ contract EscrowHandler is PermitSigner {
     uint256 public ghostSettled;
     uint256 public ghostExpired;
     uint256 public ghostCancelled;
+    uint256 public ghostNoVotes;
 
     uint32[4] internal windows = [uint32(15 minutes), 1 hours, 6 hours, 24 hours];
 
@@ -1551,7 +1784,7 @@ contract EscrowHandler is PermitSigner {
         address creator = actors[actorSeed % actors.length];
         address target = targetSeed % 3 == 0 ? address(0) : actors[targetSeed % actors.length];
         if (target == creator) target = address(0);
-        amount = bound(amount, 1e18, 100_000e18);
+        amount = bound(amount, 1e18, escrow.publicMaxBounty()); // the handler's group is public
         uint32 dur = uint32(bound(durSeed, 1 hours, 7 days));
         vm.prank(creator);
         escrow.createDare(groupId, target, amount, dur, windows[winSeed % 4], keccak256(abi.encode(actorSeed)));
@@ -1625,9 +1858,10 @@ contract EscrowHandler is PermitSigner {
             ghostBurned += burned;
             ++ghostSettled;
             require(escrow.getDare(id).outcome == expected, "outcome differs from resolvable()");
-            if (expected == BYWEscrow.Outcome.Expired) {
-                ++ghostExpired;
-                require(burned == 0, "expired dare burned tokens");
+            if (expected == BYWEscrow.Outcome.Expired || expected == BYWEscrow.Outcome.NoVotes) {
+                if (expected == BYWEscrow.Outcome.Expired) ++ghostExpired;
+                else ++ghostNoVotes;
+                require(burned == 0, "refunded dare burned tokens");
             } else {
                 require(burned > 0, "voted dare did not burn");
             }
@@ -1687,7 +1921,11 @@ contract BYWEscrowInvariantTest is PermitSigner {
         for (uint256 i = 1; i <= n; ++i) {
             BYWEscrow.Dare memory d = escrow.getDare(i);
             assertLe(uint256(d.passVotes) + d.failVotes, d.eligible);
-            if (d.state == BYWEscrow.DareState.Voting) assertGe(d.eligible, 1, "witness rule");
+            assertGe(d.voterSnapshot, 3, "snapshot taken at creation, witness rule");
+            if (d.doer != address(0)) {
+                assertGe(d.eligible, 1, "witness rule");
+                assertLe(d.eligible, d.voterSnapshot - 1, "eligible never counts the creator");
+            }
         }
     }
 
@@ -1697,5 +1935,6 @@ contract BYWEscrowInvariantTest is PermitSigner {
         emit log_named_uint("dares settled", handler.ghostSettled());
         emit log_named_uint("dares expired", handler.ghostExpired());
         emit log_named_uint("dares cancelled", handler.ghostCancelled());
+        emit log_named_uint("dares no votes", handler.ghostNoVotes());
     }
 }

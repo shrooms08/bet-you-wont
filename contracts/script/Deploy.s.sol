@@ -40,11 +40,21 @@ contract Deploy is Script {
         escrow = new BYWEscrow(IERC20(tokenAddr), inviteSigner);
         vm.stopBroadcast();
 
+        // Read back the settings (v2) before anything else uses the address.
+        require(address(escrow.token()) == tokenAddr, "token mismatch");
+        require(escrow.inviteSigner() == inviteSigner, "invite signer mismatch");
+        require(escrow.owner() == deployer, "owner mismatch");
+        require(escrow.maxBounty() == 500_000e18, "maxBounty != 500,000");
+        require(escrow.publicMaxBounty() == 20_000e18, "publicMaxBounty != 20,000");
+        require(!escrow.paused(), "paused");
+
         console2.log("chain id     ", block.chainid);
         console2.log("token        ", tokenAddr);
         console2.log("mock token   ", deployMock);
         console2.log("invite signer", escrow.inviteSigner());
         console2.log("owner        ", escrow.owner());
+        console2.log("maxBounty    ", escrow.maxBounty() / 1e18);
+        console2.log("publicMax    ", escrow.publicMaxBounty() / 1e18);
         console2.log("BYWEscrow    ", address(escrow));
     }
 }
