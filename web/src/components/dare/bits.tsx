@@ -111,5 +111,6 @@ export function resultLine(d: DareView): string {
   if (d.state === "Cancelled") return `called off before anyone took it. ${handle(d.creator)} got it all back.`;
   if (d.outcome === "Passed") return `${handle(d.doer)} did it. ${pay} $wif paid. ${burn} burned.`;
   if (d.outcome === "Failed") return `nah, cap. ${pay} back to ${handle(d.creator)}. ${burn} burned.`;
+  if (d.outcome === "NoVotes") return `nobody voted. bounty back to ${handle(d.creator)}.`;
   return `no proof. ${pay} back to ${handle(d.creator)}.`;
 }

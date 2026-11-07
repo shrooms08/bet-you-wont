@@ -32,8 +32,8 @@ describe("collectTouched", () => {
     // deliberately out of order: the mapper sorts by (block, logIndex)
     log("Voted", { dareId: n(1), voter: B, pass: true }, 130),
     log("GroupCreated", { groupId: n(1), creator: CREATOR, isPublic: true }, 100, 0),
-    log("MemberJoined", { groupId: n(1), member: CREATOR }, 100, 1),
-    log("MemberJoined", { groupId: n(1), member: A }, 101),
+    log("MemberJoined", { groupId: n(1), member: CREATOR, joinIndex: 1 }, 100, 1),
+    log("MemberJoined", { groupId: n(1), member: A, joinIndex: 2 }, 101),
     log("DareCreated", { dareId: n(1), groupId: n(1), creator: CREATOR }, 110),
     log("DareAccepted", { dareId: n(1), doer: A }, 111),
     log("ProofSubmitted", { dareId: n(1) }, 120),
@@ -54,6 +54,7 @@ describe("collectTouched", () => {
   });
   it("keeps member joins and votes in chain order, lowercased", () => {
     expect(t.members.map((m) => m.wallet)).toEqual([CREATOR.toLowerCase(), A.toLowerCase()]);
+    expect(t.members.map((m) => m.joinIndex)).toEqual([1, 2]);
     expect(t.votes).toEqual([{ dareId: n(1), voter: B.toLowerCase(), pass: true, tx: tx(130), block: n(130) }]);
   });
   it("asks for timestamps of member joins and every dare event", () => {
@@ -82,7 +83,7 @@ describe("row mapping", () => {
     proofAt: n(1_793_950_200),
     voteEnd: n(1_793_951_100),
     groupId: n(1),
-    membersAtProof: 4,
+    voterSnapshot: 4,
     eligible: 2,
     passVotes: 1,
     failVotes: 0,
@@ -116,6 +117,7 @@ describe("row mapping", () => {
       vote_end: new Date(1_793_951_100_000).toISOString(),
       proof_hash: onchain.proofHash,
       proof_at: new Date(1_793_950_200_000).toISOString(),
+      voter_snapshot: 4,
       eligible: 2,
       pass_votes: 1,
       fail_votes: 0,
@@ -145,12 +147,15 @@ describe("row mapping", () => {
       creator_wallet: B.toLowerCase(),
       created_at: new Date(1_793_940_000_000).toISOString(),
     });
-    expect(memberRow({ groupId: n(1), wallet: A.toLowerCase(), tx: tx(101), block: n(101) }, times)).toEqual({
+    expect(memberRow({ groupId: n(1), wallet: A.toLowerCase(), joinIndex: 2, tx: tx(101), block: n(101) }, times)).toEqual({
       group_id: "1",
       wallet_address: A.toLowerCase(),
       joined_at: new Date(1_793_949_000_000).toISOString(),
       join_tx: tx(101),
+      join_index: 2,
     });
+    // a v1 event (no joinIndex) never blanks a stored index
+    expect(memberRow({ groupId: n(1), wallet: A.toLowerCase(), joinIndex: null, tx: tx(101), block: n(101) }, times)).not.toHaveProperty("join_index");
     expect(voteRow({ dareId: n(1), voter: B.toLowerCase(), pass: false, tx: tx(130), block: n(130) }, times)).toMatchObject({
       dare_id: "1",
       pass: false,
@@ -190,6 +195,7 @@ describe("dare rules (mirror of BYWEscrow._resolve)", () => {
     vote_end: iso(t0 + 900_000),
     vote_window: 900,
     eligible: 3,
+    voter_snapshot: 5,
     pass_votes: 0,
     fail_votes: 0,
     ...p,
@@ -201,10 +207,12 @@ describe("dare rules (mirror of BYWEscrow._resolve)", () => {
     expect(resolveDare(voting({ fail_votes: 2 }), t0)).toEqual({ canSettle: true, outcome: "Failed" });
     expect(resolveDare(voting({ eligible: 4, fail_votes: 2 }), t0)).toEqual({ canSettle: false, outcome: "None" });
   });
-  it("after voteEnd: ties and zero votes pass", () => {
+  it("after voteEnd: zero votes is NoVotes (full refund), ties pass, one vote decides", () => {
     const after = t0 + 900_001;
-    expect(resolveDare(voting(), after).outcome).toBe("Passed");
+    expect(resolveDare(voting(), t0 + 900_000)).toEqual({ canSettle: false, outcome: "None" }); // still open at voteEnd
+    expect(resolveDare(voting(), after)).toEqual({ canSettle: true, outcome: "NoVotes" });
     expect(resolveDare(voting({ eligible: 5, pass_votes: 1, fail_votes: 1 }), after).outcome).toBe("Passed");
+    expect(resolveDare(voting({ eligible: 5, pass_votes: 1 }), after).outcome).toBe("Passed");
     expect(resolveDare(voting({ eligible: 5, pass_votes: 0, fail_votes: 1 }), after).outcome).toBe("Failed");
   });
   it("Accepted past the proof deadline is Expired", () => {
@@ -214,7 +222,7 @@ describe("dare rules (mirror of BYWEscrow._resolve)", () => {
   });
   it("buttons: accept, proof, vote, cancel", () => {
     const open = voting({ state: "Open", doer_wallet: null, vote_end: null, proof_deadline: null });
-    const viewer = (w: string, joinedAt = iso(t0 - 1_000_000), hasVoted = false) => ({ wallet: w.toLowerCase(), joinedAt, hasVoted });
+    const viewer = (w: string, joinIndex: number | null = 3, hasVoted = false) => ({ wallet: w.toLowerCase(), joinIndex, hasVoted });
     expect(dareActions(open, viewer(B), t0).canAccept).toBe(true);
     expect(dareActions(open, viewer(CREATOR), t0)).toMatchObject({ canAccept: false, canCancel: true });
     expect(dareActions({ ...open, target_wallet: A.toLowerCase() }, viewer(B), t0).canAccept).toBe(false);
@@ -228,8 +236,11 @@ describe("dare rules (mirror of BYWEscrow._resolve)", () => {
     expect(dareActions(v, viewer(B, undefined, true), t0).canVote).toBe(false); // already voted
     expect(dareActions(v, viewer(A), t0).canVote).toBe(false); // doer
     expect(dareActions(v, viewer(CREATOR), t0).canVote).toBe(false); // creator
-    expect(dareActions(v, viewer(B, iso(t0)), t0).canVote).toBe(true); // joined in the proof's second: allowed (joinedAt <= proofAt)
-    expect(dareActions(v, viewer(B, iso(t0 + 1000)), t0).canVote).toBe(false); // joined after proof (proofAt = t0)
+    // v2 snapshot rule: join index <= voter snapshot (5)
+    expect(dareActions(v, viewer(B, 5), t0).canVote).toBe(true); // last member inside the snapshot
+    expect(dareActions(v, viewer(B, 6), t0).canVote).toBe(false); // joined after the dare was created
+    expect(dareActions(v, viewer(B, null), t0).canVote).toBe(false); // join index unknown
+    expect(dareActions({ ...v, voter_snapshot: null }, viewer(B, 1), t0).canVote).toBe(false); // no snapshot (v1 row)
     expect(dareActions(v, viewer(B), t0 + 900_001).canVote).toBe(false); // voting closed
   });
 });

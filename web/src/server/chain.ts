@@ -56,6 +56,18 @@ export function isMemberOnchain(groupId: bigint, account: Address): Promise<bool
   );
 }
 
+/** 1-based join order of `account` in the group (0 = not a member). v2: votes need it <= voterSnapshot. */
+export function memberJoinIndexOnchain(groupId: bigint, account: Address): Promise<number> {
+  return rpc("memberJoinIndex", () =>
+    publicClient.readContract({
+      address: escrowAddress(),
+      abi: escrowAbi,
+      functionName: "memberJoinIndex",
+      args: [groupId, account],
+    }),
+  );
+}
+
 export function inviteSignerOnchain(): Promise<Address> {
   return rpc("inviteSigner", () =>
     publicClient.readContract({ address: escrowAddress(), abi: escrowAbi, functionName: "inviteSigner" }),

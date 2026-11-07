@@ -1,9 +1,9 @@
 // What a wallet can do with a dare right now, computed from a synced `dares` row.
-// Mirrors BYWEscrow._resolve / _outcomeOf / vote() checks. The contract stays the source of truth:
+// Mirrors BYWEscrow (v2) _resolve / _outcomeOf / vote() checks. The contract stays the source of truth:
 // these flags only decide which buttons the UI shows, and every action is simulated before sending.
 
 export const DARE_STATES = ["None", "Open", "Accepted", "Voting", "Settled", "Cancelled"] as const;
-export const OUTCOMES = ["None", "Passed", "Failed", "Expired"] as const;
+export const OUTCOMES = ["None", "Passed", "Failed", "Expired", "NoVotes"] as const;
 export type DareStateName = (typeof DARE_STATES)[number];
 export type OutcomeName = (typeof OUTCOMES)[number];
 
@@ -16,6 +16,8 @@ export type DareLike = {
   vote_end: string | null;
   vote_window: number | null;
   eligible: number | null;
+  /** group member count when the dare was created (v2): voters need join index <= this */
+  voter_snapshot?: number | null;
   pass_votes: number | null;
   fail_votes: number | null;
 };
@@ -32,14 +34,17 @@ export function resolveDare(d: DareLike, now: number): { canSettle: boolean; out
     const fail = d.fail_votes ?? 0;
     if (pass * 2 >= eligible) return { canSettle: true, outcome: "Passed" };
     if (fail * 2 > eligible) return { canSettle: true, outcome: "Failed" };
-    if (now > ms(d.vote_end)) return { canSettle: true, outcome: pass >= fail ? "Passed" : "Failed" };
+    if (now > ms(d.vote_end)) {
+      if (pass + fail === 0) return { canSettle: true, outcome: "NoVotes" }; // creator refunded 100%
+      return { canSettle: true, outcome: pass >= fail ? "Passed" : "Failed" };
+    }
   }
   return { canSettle: false, outcome: "None" };
 }
 
 export type ViewerContext = {
   wallet: string; // lowercased
-  joinedAt: string | null; // when this wallet joined the dare's group
+  joinIndex: number | null; // this wallet's 1-based join order in the dare's group (null: unknown)
   hasVoted: boolean;
 };
 
@@ -61,11 +66,10 @@ export function dareActions(d: DareLike, v: ViewerContext, now: number): DareAct
 
   const canAccept = d.state === "Open" && !isCreator && (d.target_wallet === null || d.target_wallet === me);
   const canSubmitProof = d.state === "Accepted" && isDoer && now <= ms(d.proof_deadline);
-  // Proof time = voteEnd - voteWindow. Voters must have joined by then (contract: m.joinedAt <= d.proofAt).
-  const proofAt = ms(d.vote_end) - (d.vote_window ?? 0) * 1000;
-  const joinedInTime = v.joinedAt !== null && ms(v.joinedAt) <= proofAt;
+  // Voters must have joined by the time the dare was created (contract: joinIndex <= voterSnapshot).
+  const inSnapshot = v.joinIndex !== null && d.voter_snapshot != null && v.joinIndex <= d.voter_snapshot;
   const canVote =
-    d.state === "Voting" && now <= ms(d.vote_end) && !isCreator && !isDoer && joinedInTime && !v.hasVoted;
+    d.state === "Voting" && now <= ms(d.vote_end) && !isCreator && !isDoer && inSnapshot && !v.hasVoted;
   const canCancel = d.state === "Open" && isCreator;
 
   return {

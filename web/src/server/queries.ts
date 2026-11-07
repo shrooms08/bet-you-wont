@@ -35,6 +35,7 @@ export type DareRow = {
   vote_end: string | null;
   proof_hash: string | null;
   eligible: number | null;
+  voter_snapshot?: number | null;
   pass_votes: number;
   fail_votes: number;
   payout: string | null;
@@ -51,7 +52,7 @@ export type DareRow = {
 /** Select list for dares. Big numerics are cast to text: PostgREST would send them as lossy JSON numbers. */
 export const DARE_COLUMNS =
   "id, group_id, creator_wallet, target_wallet, doer_wallet, amount::text, do_duration, vote_window, meta_hash, text, " +
-  "state, outcome, accepted_at, proof_deadline, vote_end, proof_hash, eligible, pass_votes, fail_votes, payout::text, " +
+  "state, outcome, accepted_at, proof_deadline, vote_end, proof_hash, eligible, voter_snapshot, pass_votes, fail_votes, payout::text, " +
   "burned::text, created_tx, settled_tx, created_at, updated_at, proof_at, settled_at, activity_at";
 
 export type GroupRow = {
@@ -86,9 +87,9 @@ export async function profilesByWallet(wallets: Iterable<string | null | undefin
 /** Groups this wallet belongs to (per the synced members table), with member and live-dare counts. */
 export async function groupsForWallet(wallet: string) {
   const memberships = check(
-    await db().from("group_members").select("group_id, joined_at").eq("wallet_address", wallet.toLowerCase()),
+    await db().from("group_members").select("group_id, joined_at, join_index").eq("wallet_address", wallet.toLowerCase()),
     "loading memberships",
-  ) as Array<{ group_id: number; joined_at: string | null }>;
+  ) as Array<{ group_id: number; joined_at: string | null; join_index: number | null }>;
   const ids = memberships.map((m) => m.group_id);
   if (!ids.length) return [];
 
@@ -127,6 +128,7 @@ export async function groupsForWallet(wallet: string) {
       liveDareCount: liveCount.get(g.id) ?? 0,
       members: previews(Number(g.id)),
       joinedAt: memberships.find((m) => m.group_id === g.id)?.joined_at ?? null,
+      joinIndex: memberships.find((m) => m.group_id === g.id)?.join_index ?? null,
     }))
     .sort((a, b) => b.id - a.id);
 }

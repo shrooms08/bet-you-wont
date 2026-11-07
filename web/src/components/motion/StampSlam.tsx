@@ -6,8 +6,8 @@ import { fx } from "@/lib/fx";
 import { springs } from "@/lib/motion";
 import { ScallopBadge } from "../ui/States";
 
-export type StampOutcome = "PASSED" | "FAILED" | "EXPIRED";
-const TONE = { PASSED: "passed", FAILED: "failed", EXPIRED: "expired" } as const;
+export type StampOutcome = "PASSED" | "FAILED" | "EXPIRED" | "NO VOTES";
+const TONE = { PASSED: "passed", FAILED: "failed", EXPIRED: "expired", "NO VOTES": "expired" } as const;
 const IMPACT_MS = 170; // when the bouncy spring first reaches scale 1
 
 /**

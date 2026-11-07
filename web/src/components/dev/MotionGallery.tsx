@@ -16,7 +16,7 @@ import { Skeleton } from "../ui/States";
 import { StatusTag, type TagKind } from "../ui/StatusTag";
 
 const WEI = BigInt("1000000000000000000");
-const TAGS: TagKind[] = ["OPEN", "AIGHT BET", "VOTING", "PASSED", "FAILED", "EXPIRED", "CANCELLED"];
+const TAGS: TagKind[] = ["OPEN", "AIGHT BET", "VOTING", "PASSED", "FAILED", "EXPIRED", "NO VOTES", "CANCELLED"];
 const FAKE_HASH = `0x${"ab".repeat(32)}` as const;
 
 function Demo({ title, hint, children, wide }: { title: string; hint?: string; children: ReactNode; wide?: boolean }) {
@@ -77,7 +77,7 @@ export function MotionGallery() {
 
         <Demo title="stamp slam" hint="bouncy drop, 2-frame shake, dot confetti.">
           <div className="flex flex-wrap gap-3">
-            {(["PASSED", "FAILED", "EXPIRED"] as const).map((o) => (
+            {(["PASSED", "FAILED", "EXPIRED", "NO VOTES"] as const).map((o) => (
               <PillButton key={o} size="sm" variant={o === "PASSED" ? "primary" : "secondary"} onClick={() => setStamp({ outcome: o, key: Date.now() })}>
                 {o.toLowerCase()}
               </PillButton>

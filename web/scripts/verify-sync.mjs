@@ -18,7 +18,7 @@ const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABA
 });
 
 const STATES = ["None", "Open", "Accepted", "Voting", "Settled", "Cancelled"];
-const OUTCOMES = ["None", "Passed", "Failed", "Expired"];
+const OUTCOMES = ["None", "Passed", "Failed", "Expired", "NoVotes"];
 const read = (functionName, args = []) => client.readContract({ address: escrow, abi, functionName, args });
 const lower = (a) => (a === zeroAddress ? null : a.toLowerCase());
 const isoOrNull = (s) => (s === 0n ? null : new Date(Number(s) * 1000).toISOString());
@@ -41,7 +41,7 @@ console.log(`sync cursor: block ${sync?.last_block}`);
 for (let id = 1n; id <= groupCount; id++) {
   const g = await read("getGroup", [id]);
   const { data: row } = await db.from("groups").select("*").eq("id", id.toString()).maybeSingle();
-  const { data: members } = await db.from("group_members").select("wallet_address, joined_at").eq("group_id", id.toString());
+  const { data: members } = await db.from("group_members").select("wallet_address, joined_at, join_index").eq("group_id", id.toString());
   expect(`group ${id} row exists`, !!row, true);
   if (!row) continue;
   expect(`group ${id} creator`, row.creator_wallet, g.creator.toLowerCase());
@@ -49,14 +49,18 @@ for (let id = 1n; id <= groupCount; id++) {
   expect(`group ${id} created_at`, sameTime(row.created_at, isoOrNull(g.createdAt)), true);
   expect(`group ${id} member rows = onchain memberCount`, members.length, g.memberCount);
   let allMembers = true;
+  let indexOk = true;
   let joinTimesOk = true;
   for (const m of members) {
     if (!(await read("isMember", [id, m.wallet_address]))) allMembers = false;
-    const joinedAt = await read("joinedAt", [id, m.wallet_address]);
-    if (!sameTime(m.joined_at, isoOrNull(joinedAt))) joinTimesOk = false;
+    // v2: the join index is the voting key; joined_at is the block time of MemberJoined
+    const idx = await read("memberJoinIndex", [id, m.wallet_address]);
+    if (m.join_index !== Number(idx)) indexOk = false;
+    if (!m.joined_at || Date.parse(m.joined_at) < Number(g.createdAt) * 1000) joinTimesOk = false;
   }
   expect(`group ${id} every member row isMember onchain`, allMembers, true);
-  expect(`group ${id} joined_at matches onchain joinedAt`, joinTimesOk, true);
+  expect(`group ${id} join_index matches onchain memberJoinIndex`, indexOk, true);
+  expect(`group ${id} joined_at set and not before the group existed`, joinTimesOk, true);
 }
 
 for (let id = 1n; id <= dareCount; id++) {
@@ -77,10 +81,11 @@ for (let id = 1n; id <= dareCount; id++) {
   expect(`dare ${id} meta_hash`, row.meta_hash, d.metaHash);
   expect(`dare ${id} proof_hash`, row.proof_hash, d.proofHash === zeroHash ? null : d.proofHash);
   expect(`dare ${id} tallies`, `${row.pass_votes}/${row.fail_votes}/${row.eligible}`, `${d.passVotes}/${d.failVotes}/${d.eligible}`);
+  expect(`dare ${id} voter_snapshot`, row.voter_snapshot, d.voterSnapshot);
   expect(`dare ${id} proof_deadline`, sameTime(row.proof_deadline, isoOrNull(d.proofDeadline)), true);
   expect(`dare ${id} created_at is a real time (not 1970)`, row.created_at, (v) => !!v && Date.parse(v) > Date.parse("2026-01-01"));
   if (OUTCOMES[d.outcome] !== "None") {
-    const bps = { Passed: 500n, Failed: 1000n, Expired: 0n }[OUTCOMES[d.outcome]];
+    const bps = { Passed: 500n, Failed: 1000n, Expired: 0n, NoVotes: 0n }[OUTCOMES[d.outcome]];
     const burned = (d.amount * bps) / 10000n;
     expect(`dare ${id} payout`, row.payout, (d.amount - burned).toString());
     expect(`dare ${id} burned`, row.burned, burned.toString());

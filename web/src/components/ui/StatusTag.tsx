@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { springs } from "@/lib/motion";
 
-export type TagKind = "OPEN" | "AIGHT BET" | "VOTING" | "PASSED" | "FAILED" | "EXPIRED" | "CANCELLED";
+export type TagKind = "OPEN" | "AIGHT BET" | "VOTING" | "PASSED" | "FAILED" | "EXPIRED" | "NO VOTES" | "CANCELLED";
 
 // Symbol + word: status is never carried by color alone.
 const TAGS: Record<TagKind, { cls: string; sym: string }> = {
@@ -13,6 +13,7 @@ const TAGS: Record<TagKind, { cls: string; sym: string }> = {
   PASSED: { cls: "bg-tag-passed text-tag-passed-fg", sym: "★" },
   FAILED: { cls: "bg-tag-failed text-tag-failed-fg", sym: "✕" },
   EXPIRED: { cls: "bg-tag-expired text-tag-expired-fg", sym: "◷" },
+  "NO VOTES": { cls: "bg-tag-expired text-tag-expired-fg", sym: "∅" },
   CANCELLED: { cls: "bg-tag-expired text-tag-expired-fg", sym: "⊘" },
 };
 
@@ -24,6 +25,7 @@ export function tagFor(state: string, outcome: string): TagKind {
   if (state === "Cancelled") return "CANCELLED";
   if (outcome === "Passed") return "PASSED";
   if (outcome === "Failed") return "FAILED";
+  if (outcome === "NoVotes") return "NO VOTES";
   return "EXPIRED";
 }
 

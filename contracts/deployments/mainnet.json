@@ -3,6 +3,7 @@
   "chainId": 4663,
   "rpcUrl": "https://rpc.mainnet.chain.robinhood.com",
   "explorerUrl": "https://robinhoodchain.blockscout.com",
+  "version": 2,
   "contracts": {
     "WIF": {
       "address": "0x5173b8eA6923c2d40267890D45C46a3480954773",
@@ -12,10 +13,14 @@
       "explorer": "https://robinhoodchain.blockscout.com/address/0x5173b8eA6923c2d40267890D45C46a3480954773"
     },
     "BYWEscrow": {
-      "address": "0xc8A4e1A956F9AA884D962346123FdC9554Ce713E",
-      "verified": { "sourcify": "exact_match", "blockscout": "not submitted (Cloudflare challenge blocks API clients)" },
-      "sourcify": "https://repo.sourcify.dev/4663/0xc8A4e1A956F9AA884D962346123FdC9554Ce713E",
-      "explorer": "https://robinhoodchain.blockscout.com/address/0xc8A4e1A956F9AA884D962346123FdC9554Ce713E"
+      "address": "0xA23143a995898DA008700921da498bdA5dFF8811",
+      "version": 2,
+      "verified": {
+        "sourcify": "exact_match",
+        "blockscout": "not submitted (Cloudflare challenge blocks API clients)"
+      },
+      "sourcify": "https://repo.sourcify.dev/4663/0xA23143a995898DA008700921da498bdA5dFF8811",
+      "explorer": "https://robinhoodchain.blockscout.com/address/0xA23143a995898DA008700921da498bdA5dFF8811"
     }
   },
   "token": "0x5173b8eA6923c2d40267890D45C46a3480954773",
@@ -23,27 +28,80 @@
   "deployer": "0x0DAC29759b70D9a0d60A95bf4A8BC1c4Ec9d1779",
   "owner": "0x0DAC29759b70D9a0d60A95bf4A8BC1c4Ec9d1779",
   "maxBounty": "500000000000000000000000",
-  "deployBlock": 108275295,
-  "escrowDeployBlock": 108275295,
+  "publicMaxBounty": "20000000000000000000000",
+  "deployBlock": 108389945,
+  "escrowDeployBlock": 108389945,
   "publicGroupId": 1,
   "transactions": [
     {
-      "step": "deploy BYWEscrow",
-      "hash": "0x3831098b050c75a944b47d8d42870c284455ec0fb963dea98ccd5dd370db9137",
-      "block": 108275295,
-      "gasUsed": 2560319,
-      "effectiveGasPriceWei": 20038000,
-      "feeEth": "0.000051303672122",
-      "explorer": "https://robinhoodchain.blockscout.com/tx/0x3831098b050c75a944b47d8d42870c284455ec0fb963dea98ccd5dd370db9137"
+      "step": "deploy BYWEscrow v2",
+      "hash": "0xb28575b7b612bd717bab3a5b481107b26f0f8af30bf54658c2a976782f721ce7",
+      "block": 108389945,
+      "gasUsed": 2613150,
+      "effectiveGasPriceWei": 20050000,
+      "feeEth": "0.0000523936575",
+      "explorer": "https://robinhoodchain.blockscout.com/tx/0xb28575b7b612bd717bab3a5b481107b26f0f8af30bf54658c2a976782f721ce7"
     },
     {
-      "step": "createGroup(true) -> public wifie 1",
-      "hash": "0x7cb61c4e08688d3117200b2fa1e69cdf027c3e70cc56e1658c3c6d4ef7b3c307",
-      "block": 108276771,
-      "gasUsed": 116310,
-      "effectiveGasPriceWei": 20068000,
-      "feeEth": "0.00000233410908",
-      "explorer": "https://robinhoodchain.blockscout.com/tx/0x7cb61c4e08688d3117200b2fa1e69cdf027c3e70cc56e1658c3c6d4ef7b3c307"
+      "step": "pause() on v1 escrow",
+      "hash": "0x7b2b8e1d89ef3c775a07efdcfeebe575f16e14e25541f4357d53445e41bf3213",
+      "block": 108390646,
+      "gasUsed": 46878,
+      "effectiveGasPriceWei": 20030000,
+      "feeEth": "0.00000093896634",
+      "explorer": "https://robinhoodchain.blockscout.com/tx/0x7b2b8e1d89ef3c775a07efdcfeebe575f16e14e25541f4357d53445e41bf3213"
+    },
+    {
+      "step": "createGroup(true) on v2 -> public wifie 1",
+      "hash": "0xefd30cd62c0d35b5bdbf4b4c2ed70f8403bc68564d51ce26fa791fc7c49091af",
+      "block": 108390813,
+      "gasUsed": 116487,
+      "effectiveGasPriceWei": 20000000,
+      "feeEth": "0.00000232974",
+      "explorer": "https://robinhoodchain.blockscout.com/tx/0xefd30cd62c0d35b5bdbf4b4c2ed70f8403bc68564d51ce26fa791fc7c49091af"
+    }
+  ],
+  "previous": [
+    {
+      "version": 1,
+      "status": "paused",
+      "pausedAt": {
+        "block": 108390646,
+        "tx": "0x7b2b8e1d89ef3c775a07efdcfeebe575f16e14e25541f4357d53445e41bf3213"
+      },
+      "note": "Retired after the 2026-11-07 audit (H-1, M-2, L-2). Held 0 $wif and 0 dares when paused.",
+      "BYWEscrow": {
+        "address": "0xc8A4e1A956F9AA884D962346123FdC9554Ce713E",
+        "verified": {
+          "sourcify": "exact_match",
+          "blockscout": "not submitted (Cloudflare challenge blocks API clients)"
+        },
+        "sourcify": "https://repo.sourcify.dev/4663/0xc8A4e1A956F9AA884D962346123FdC9554Ce713E",
+        "explorer": "https://robinhoodchain.blockscout.com/address/0xc8A4e1A956F9AA884D962346123FdC9554Ce713E"
+      },
+      "deployBlock": 108275295,
+      "publicGroupId": 1,
+      "maxBounty": "500000000000000000000000",
+      "transactions": [
+        {
+          "step": "deploy BYWEscrow",
+          "hash": "0x3831098b050c75a944b47d8d42870c284455ec0fb963dea98ccd5dd370db9137",
+          "block": 108275295,
+          "gasUsed": 2560319,
+          "effectiveGasPriceWei": 20038000,
+          "feeEth": "0.000051303672122",
+          "explorer": "https://robinhoodchain.blockscout.com/tx/0x3831098b050c75a944b47d8d42870c284455ec0fb963dea98ccd5dd370db9137"
+        },
+        {
+          "step": "createGroup(true) -> public wifie 1",
+          "hash": "0x7cb61c4e08688d3117200b2fa1e69cdf027c3e70cc56e1658c3c6d4ef7b3c307",
+          "block": 108276771,
+          "gasUsed": 116310,
+          "effectiveGasPriceWei": 20068000,
+          "feeEth": "0.00000233410908",
+          "explorer": "https://robinhoodchain.blockscout.com/tx/0x7cb61c4e08688d3117200b2fa1e69cdf027c3e70cc56e1658c3c6d4ef7b3c307"
+        }
+      ]
     }
   ]
 }

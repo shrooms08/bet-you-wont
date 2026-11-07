@@ -76,6 +76,14 @@ describe("scoring rules", () => {
     expect(s.stats.get(B)!.score).toBe(-50);
     expect(s.stats.get(A)!.score).toBe(0);
   });
+  it("no votes (v2 NoVotes, creator refunded 100%): 0 points for both sides, and the week doesn't qualify", () => {
+    const s = run([dare({ id: 1, outcome: "NoVotes", payout: tok(2000), burned: BigInt(0) })]);
+    expect(s.stats.get(B)?.score ?? 0).toBe(0);
+    expect(s.stats.get(A)?.score ?? 0).toBe(0);
+    expect(s.stats.get(B)?.currentStreak ?? 0).toBe(0);
+    expect(s.stats.get(B)?.weekQualified ?? false).toBe(false);
+    expect(s.stats.get(B)?.wifWon ?? BigInt(0)).toBe(BigInt(0));
+  });
   it("each vote +5, dated by the vote", () => {
     const s = run([dare({ id: 1, state: "Voting", outcome: "None", settledAt: null })], [{ dareId: 1, voter: C, createdAt: at("2026-11-03T09:00:00Z") }]);
     expect(s.stats.get(C)!.score).toBe(5);

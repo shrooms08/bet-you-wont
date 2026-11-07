@@ -40,6 +40,8 @@ const mainnet = {
   deployBlock: m.deployBlock,
   explorerUrl: m.explorerUrl,
   publicGroupId: m.publicGroupId,
+  // v2: largest bounty for a new dare in a public wifie (wei, as a string). Owner-settable onchain.
+  publicMaxBounty: m.publicMaxBounty ?? null,
 };
 writeFileSync(
   join(out, "deployments.ts"),

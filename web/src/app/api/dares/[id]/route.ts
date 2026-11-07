@@ -46,7 +46,7 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
   const [view] = buildDareViews({
     dares: [dare],
     viewer: me,
-    joinedAtByGroup: new Map([[groupId, access.joinedAt]]),
+    joinIndexByGroup: new Map([[groupId, access.joinIndex]]),
     voted,
     profiles,
     proofs,

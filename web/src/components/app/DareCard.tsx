@@ -36,6 +36,8 @@ export function dareNote(d: DareView, now = Date.now()): string {
       return `nah. ${formatWif(d.payout ?? "0")} back to ${handle(d.creator)} · ${formatWif(d.burned ?? "0")} burned`;
     case "EXPIRED":
       return `no proof. all ${formatWif(d.payout ?? d.amount)} ${WIF_LABEL} back to ${handle(d.creator)}`;
+    case "NO VOTES":
+      return `nobody voted. bounty back to ${handle(d.creator)}.`;
     case "CANCELLED":
       return `called off. ${handle(d.creator)} got it all back`;
   }
@@ -143,7 +145,7 @@ export function DareCard({ d, actions, now }: { d: DareView; actions: Actions; n
           )}
           {d.canSettle && (
             <PillButton full variant="secondary" loading={busy("settle")} disabled={anyBusy} onClick={() => void actions.settle(d.id)}>
-              settle it ({d.settleOutcome === "Passed" ? "it counts" : d.settleOutcome === "Failed" ? "nah" : "no proof"})
+              settle it ({d.settleOutcome === "Passed" ? "it counts" : d.settleOutcome === "Failed" ? "nah" : d.settleOutcome === "NoVotes" ? "no votes" : "no proof"})
             </PillButton>
           )}
           {d.canCancel && (

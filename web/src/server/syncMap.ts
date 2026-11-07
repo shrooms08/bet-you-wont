@@ -28,7 +28,7 @@ export type OnchainDare = {
   proofAt: bigint;
   voteEnd: bigint;
   groupId: bigint;
-  membersAtProof: number;
+  voterSnapshot: number;
   eligible: number;
   passVotes: number;
   failVotes: number;
@@ -36,7 +36,7 @@ export type OnchainDare = {
   proofHash: Hex;
 };
 
-export type MemberEvent = { groupId: bigint; wallet: string; tx: Hex; block: bigint };
+export type MemberEvent = { groupId: bigint; wallet: string; joinIndex: number | null; tx: Hex; block: bigint };
 export type VoteEvent = { dareId: bigint; voter: string; pass: boolean; tx: Hex; block: bigint };
 
 export type Touched = {
@@ -81,7 +81,13 @@ export function collectTouched(logs: EscrowLog[]): Touched {
         break;
       case "MemberJoined":
         group(a.groupId as bigint);
-        t.members.push({ groupId: a.groupId as bigint, wallet: lower(a.member), tx: log.transactionHash, block: log.blockNumber });
+        t.members.push({
+          groupId: a.groupId as bigint,
+          wallet: lower(a.member),
+          joinIndex: a.joinIndex === undefined ? null : Number(a.joinIndex),
+          tx: log.transactionHash,
+          block: log.blockNumber,
+        });
         t.blocks.add(log.blockNumber);
         break;
       case "DareCreated": {
@@ -136,6 +142,7 @@ export function memberRow(m: MemberEvent, blockTime: Map<bigint, bigint>) {
     wallet_address: m.wallet,
     joined_at: ts === undefined ? null : iso(ts),
     join_tx: m.tx,
+    ...(m.joinIndex !== null ? { join_index: m.joinIndex } : {}),
   };
 }
 
@@ -192,6 +199,7 @@ export function dareRow(
     vote_end: isoOrNull(d.voteEnd),
     proof_hash: d.proofHash === zeroHash ? null : d.proofHash,
     proof_at: isoOrNull(d.proofAt),
+    voter_snapshot: d.voterSnapshot,
     eligible: d.eligible,
     pass_votes: d.passVotes,
     fail_votes: d.failVotes,

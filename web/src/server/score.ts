@@ -22,7 +22,7 @@ export type ScoreDare = {
   doer: string | null;
   amount: bigint;
   state: string; // Open | Accepted | Voting | Settled | Cancelled
-  outcome: string; // None | Passed | Failed | Expired
+  outcome: string; // None | Passed | Failed | Expired | NoVotes (NoVotes scores 0 for both sides)
   payout: bigint | null;
   burned: bigint | null;
   settledAt: string | null;

@@ -43,7 +43,7 @@ export function ScallopBadge({
       </svg>
       <span
         className="absolute inset-0 grid place-items-center text-center font-display uppercase leading-none tracking-[-0.02em]"
-        style={{ color: fg, fontSize: size / 6.3 }}
+        style={{ color: fg, fontSize: label.length > 7 ? size / 8.4 : size / 6.3 }}
         aria-hidden
       >
         {label}

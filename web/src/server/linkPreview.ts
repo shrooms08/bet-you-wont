@@ -31,7 +31,9 @@ export type PreviewDare = {
 };
 
 function status(d: PreviewDare): string {
-  if (d.state === "Settled") return d.outcome === "Passed" ? "passed" : d.outcome === "Failed" ? "failed" : "expired";
+  if (d.state === "Settled") {
+    return ({ Passed: "passed", Failed: "failed", NoVotes: "no votes, refunded" } as Record<string, string>)[d.outcome] ?? "expired";
+  }
   return ({ Open: "open", Accepted: "in progress", Voting: "voting now", Cancelled: "cancelled" } as Record<string, string>)[d.state] ?? d.state.toLowerCase();
 }
 

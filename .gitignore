@@ -24,3 +24,6 @@ node_modules/
 
 # local database backups (may contain user data)
 /backups/
+
+# Supabase CLI link state
+/supabase/.temp/

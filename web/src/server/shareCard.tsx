@@ -25,6 +25,7 @@ const STAMP: Record<string, { fill: string; fg: string; label: string }> = {
   Passed: { fill: "#B8DA3C", fg: "#14141A", label: "PASSED" },
   Failed: { fill: "#421DBF", fg: "#F2F0E6", label: "FAILED" },
   Expired: { fill: "#55555D", fg: "#F2F0E6", label: "EXPIRED" },
+  NoVotes: { fill: "#55555D", fg: "#F2F0E6", label: "NO VOTES" },
   Voting: { fill: "#F2F0E6", fg: "#14141A", label: "VOTING" },
 };
 
@@ -99,7 +100,7 @@ function Card({ d, media, avatar, mark, appUrl }: { d: DareView; media: string |
               <path d={scallop(110, 116, 98, 86, 21)} fill="#2B2B31" />
               <path d={scallop(110, 110, 98, 86, 21)} fill={stamp.fill} stroke={C.border} strokeWidth="7" />
             </svg>
-            <span style={{ fontFamily: "Archivo Black", fontSize: 52, color: stamp.fg, marginTop: -6 }}>{stamp.label}</span>
+            <span style={{ fontFamily: "Archivo Black", fontSize: stamp.label.length > 7 ? 40 : 52, color: stamp.fg, marginTop: -6 }}>{stamp.label}</span>
           </div>
         )}
       </div>

@@ -29,10 +29,10 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
   }
 
   const [membersRes, daresRes] = await Promise.all([
-    db().from("group_members").select("wallet_address, joined_at, join_tx").eq("group_id", id).order("joined_at"),
+    db().from("group_members").select("wallet_address, joined_at, join_tx, join_index").eq("group_id", id).order("joined_at"),
     db().from("dares").select(DARE_COLUMNS).eq("group_id", id).order("id", { ascending: false }),
   ]);
-  const members = check(membersRes, "loading members") as Array<{ wallet_address: string; joined_at: string | null; join_tx: string | null }>;
+  const members = check(membersRes, "loading members") as Array<{ wallet_address: string; joined_at: string | null; join_tx: string | null; join_index: number | null }>;
   const dares = check(daresRes, "loading dares") as unknown as DareRow[];
 
   const me = caller.wallet.toLowerCase();
@@ -41,7 +41,7 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
     proofsByHash(dares.map((d) => d.proof_hash)),
     votedDareIds(me, dares.map((d) => Number(d.id))),
   ]);
-  const myJoin = members.find((m) => m.wallet_address === me)?.joined_at ?? null;
+  const myJoinIndex = members.find((m) => m.wallet_address === me)?.join_index ?? null;
 
   return ok({
     viewer: me,
@@ -59,13 +59,13 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
       openDares: dares.filter((d) => d.state === "Open").length,
       liveDares: dares.filter((d) => LIVE_STATES.includes(d.state)).length,
       paidOut: sum(dares.filter((d) => d.outcome === "Passed").map((d) => d.payout)).toString(),
-      refunded: sum(dares.filter((d) => d.outcome === "Failed" || d.outcome === "Expired").map((d) => d.payout)).toString(),
+      refunded: sum(dares.filter((d) => d.outcome === "Failed" || d.outcome === "Expired" || d.outcome === "NoVotes").map((d) => d.payout)).toString(),
       burned: sum(dares.map((d) => d.burned)).toString(),
     },
     dares: buildDareViews({
       dares,
       viewer: me,
-      joinedAtByGroup: new Map([[Number(group.id), myJoin]]),
+      joinIndexByGroup: new Map([[Number(group.id), myJoinIndex]]),
       voted,
       profiles,
       proofs,

@@ -64,7 +64,7 @@ function DareMain({ s, dareId }: { s: Session; dareId: number }) {
   const data = q.data as DareDetail | undefined;
   const d = data?.dare;
   const kind = d ? tagFor(d.state, d.outcome) : null;
-  const settled = kind === "PASSED" || kind === "FAILED" || kind === "EXPIRED";
+  const settled = kind === "PASSED" || kind === "FAILED" || kind === "EXPIRED" || kind === "NO VOTES";
   const slam = useFirstSettledView(dareId, settled);
 
   if (q.isLoading) return <Skeleton count={2} height={260} />;

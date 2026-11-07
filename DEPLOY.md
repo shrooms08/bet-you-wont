@@ -4,7 +4,8 @@ The web app is in `web/`. It runs on **RH Chain mainnet** (chain 4663, `NEXT_PUB
 
 | Mainnet | |
 |---|---|
-| BYWEscrow | `0xc8A4e1A956F9AA884D962346123FdC9554Ce713E` (deploy block 108275295, Sourcify exact match) |
+| BYWEscrow (v2) | `0xA23143a995898DA008700921da498bdA5dFF8811` (deploy block 108389945, Sourcify exact match) |
+| BYWEscrow (v1, paused) | `0xc8A4e1A956F9AA884D962346123FdC9554Ce713E` (retired after the audit; held no bounties) |
 | $wif token | `0x5173b8eA6923c2d40267890D45C46a3480954773` |
 | Public wifie | group 1, "world is flat" |
 | Explorer | https://robinhoodchain.blockscout.com |

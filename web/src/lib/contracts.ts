@@ -21,6 +21,7 @@ type NetworkConfig = {
   token: Address;
   tokenSymbol: string;
   deployBlock: bigint | null; // first block the escrow can have logs in
+  publicMaxBounty: bigint | null; // v2 cap for public wifies (null: no separate cap on this network)
 };
 
 const NETWORKS: Record<NetworkName, NetworkConfig> = {
@@ -30,6 +31,7 @@ const NETWORKS: Record<NetworkName, NetworkConfig> = {
     token: testnetDeployment.token,
     tokenSymbol: testnetDeployment.tokenSymbol,
     deployBlock: BigInt(testnetDeployment.deployBlock),
+    publicMaxBounty: null, // testnet runs the v1 escrow
   },
   mainnet: {
     chain: rhChain,
@@ -37,6 +39,7 @@ const NETWORKS: Record<NetworkName, NetworkConfig> = {
     token: mainnetDeployment.token, // real $wif
     tokenSymbol: mainnetDeployment.tokenSymbol,
     deployBlock: BigInt(mainnetDeployment.deployBlock),
+    publicMaxBounty: mainnetDeployment.publicMaxBounty ? BigInt(mainnetDeployment.publicMaxBounty) : null,
   },
 };
 
@@ -47,6 +50,8 @@ export const tokenSymbol = NETWORKS[network].tokenSymbol;
 /** The real $wif address on mainnet, used for USD pricing on every network (mWIF has no market). */
 export const MAINNET_WIF_ADDRESS: Address = NETWORKS.mainnet.token;
 export const escrowAbi = bywEscrowAbi;
+/** Largest bounty (wei) for a new dare in a public wifie, or null when the network has no such cap. */
+export const publicMaxBountyWei: bigint | null = NETWORKS[network].publicMaxBounty;
 // The token ABI is the standard ERC20 + burn surface, identical for mWIF and $wif.
 export const tokenAbi = mockWifAbi;
 

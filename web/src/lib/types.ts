@@ -81,6 +81,8 @@ export type DareView = {
   proofAt?: string | null;
   settledAt?: string | null;
   activityAt?: string | null;
+  /** v2: group member count when the dare was created (only those members can vote) */
+  voterSnapshot?: number | null;
   canAccept: boolean;
   canSubmitProof: boolean;
   canVote: boolean;

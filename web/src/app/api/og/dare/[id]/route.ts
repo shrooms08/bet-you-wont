@@ -26,7 +26,7 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
     const access = await crewAccess(Number(row.group_id), caller.wallet);
     if (!access.canSee) throw new ApiError(404, "this dare is private");
     const [profiles, proofs] = await Promise.all([profilesByWallet([row.creator_wallet, row.target_wallet, row.doer_wallet]), proofsByHash([row.proof_hash])]);
-    d = buildDareViews({ dares: [row], viewer: caller.wallet.toLowerCase(), joinedAtByGroup: new Map(), voted: new Set(), profiles, proofs, readOnlyGroups: new Set([Number(row.group_id)]) })[0];
+    d = buildDareViews({ dares: [row], viewer: caller.wallet.toLowerCase(), joinIndexByGroup: new Map(), voted: new Set(), profiles, proofs, readOnlyGroups: new Set([Number(row.group_id)]) })[0];
   }
 
   const png = await renderShareCard(d, appUrl);

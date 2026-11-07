@@ -18,7 +18,7 @@ export const GET = getRoute(async (request: Request, ctx: { params: Promise<{ id
   const { dare } = found;
 
   const [profiles, proofs] = await Promise.all([profilesByWallet([dare.creator_wallet, dare.target_wallet, dare.doer_wallet]), proofsByHash([dare.proof_hash])]);
-  const d = buildDareViews({ dares: [dare], viewer: "", joinedAtByGroup: new Map(), voted: new Set(), profiles, proofs, readOnlyGroups: new Set([Number(dare.group_id)]) })[0];
+  const d = buildDareViews({ dares: [dare], viewer: "", joinIndexByGroup: new Map(), voted: new Set(), profiles, proofs, readOnlyGroups: new Set([Number(dare.group_id)]) })[0];
   const png = await renderShareCard(d, process.env.NEXT_PUBLIC_APP_URL || url.origin);
 
   const current = url.searchParams.get("v") === cardVersion(dare);

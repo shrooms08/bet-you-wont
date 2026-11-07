@@ -17,9 +17,9 @@ export const GET = getRoute(async (request: Request) => {
   await quickSync();
 
   const memberships = check(
-    await db().from("group_members").select("group_id, joined_at").eq("wallet_address", me),
+    await db().from("group_members").select("group_id, joined_at, join_index").eq("wallet_address", me),
     "loading memberships",
-  ) as Array<{ group_id: number; joined_at: string | null }>;
+  ) as Array<{ group_id: number; joined_at: string | null; join_index: number | null }>;
   const memberOf = new Set(memberships.map((m) => Number(m.group_id)));
   const groupIds = [...new Set([...memberOf, PUBLIC_GROUP_ID])];
 
@@ -49,7 +49,7 @@ export const GET = getRoute(async (request: Request) => {
   const views = buildDareViews({
     dares: page,
     viewer: me,
-    joinedAtByGroup: new Map(memberships.map((m) => [Number(m.group_id), m.joined_at])),
+    joinIndexByGroup: new Map(memberships.map((m) => [Number(m.group_id), m.join_index])),
     voted,
     profiles,
     proofs,

@@ -6,6 +6,8 @@ import { formatUnits, parseUnits, type Address } from "viem";
 import { useBalances, useFeed, usePrice, type Session } from "@/hooks/data";
 import { useActions } from "@/hooks/useActions";
 import { formatUsd, formatWif, groupName } from "@/lib/format";
+import { publicCap } from "@/lib/bounty";
+import { publicMaxBountyWei } from "@/lib/contracts";
 import { useMockMode, withMock } from "@/lib/mock";
 import { AppShell } from "../app/AppShell";
 import { InviteButton } from "../app/Crews";
@@ -92,7 +94,9 @@ function CreateMain({ s }: { s: Session }) {
     wei = null;
   }
   const overBalance = wei !== null && balances.wif !== undefined && wei > balances.wif;
-  const valid = gid !== null && len >= 3 && len <= 140 && wei !== null && wei >= WEI && !overBalance && !tooSmall;
+  const isPublic = feed.data?.group.isPublic ?? groups.find((g) => g.id === gid)?.isPublic ?? false;
+  const cap = publicCap(wei, isPublic, publicMaxBountyWei);
+  const valid = gid !== null && len >= 3 && len <= 140 && wei !== null && wei >= WEI && !overBalance && !cap.over && !tooSmall;
 
   async function send() {
     if (!valid || gid === null || wei === null) return;
@@ -177,13 +181,20 @@ function CreateMain({ s }: { s: Session }) {
           <Field
             label="bounty"
             hint={
-              <p className={`text-[14px] ${overBalance ? "text-danger" : "text-muted"}`} role={overBalance ? "alert" : undefined}>
-                {overBalance
-                  ? `that's more than you have (${formatWif(balances.wif!)} ${WIF_LABEL}).`
-                  : balances.wif !== undefined
-                    ? `you have ${formatWif(balances.wif)} ${WIF_LABEL}`
-                    : ""}
-              </p>
+              <div className="flex flex-col gap-1">
+                <p className={`text-[14px] ${overBalance ? "text-danger" : "text-muted"}`} role={overBalance ? "alert" : undefined}>
+                  {overBalance
+                    ? `that's more than you have (${formatWif(balances.wif!)} ${WIF_LABEL}).`
+                    : balances.wif !== undefined
+                      ? `you have ${formatWif(balances.wif)} ${WIF_LABEL}`
+                      : ""}
+                </p>
+                {cap.label && (
+                  <p className={`text-[14px] ${cap.over ? "font-extrabold text-danger" : "text-muted"}`} role={cap.over ? "alert" : undefined}>
+                    {cap.over ? `too big for a public wifie. ${cap.label}. go smaller, or dare in a private wifie.` : cap.label}
+                  </p>
+                )}
+              </div>
             }
           >
             <div className="flex flex-wrap gap-2">

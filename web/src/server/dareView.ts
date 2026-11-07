@@ -78,7 +78,8 @@ const READ_ONLY = { canAccept: false, canSubmitProof: false, canVote: false, can
 export type DareViewInput = {
   dares: DareRow[];
   viewer: string; // lowercased wallet
-  joinedAtByGroup: Map<number, string | null>;
+  /** the viewer's join index per group (vote eligibility: joinIndex <= dare.voter_snapshot) */
+  joinIndexByGroup: Map<number, number | null>;
   voted: Set<number>;
   profiles: Map<string, ProfileRow>;
   proofs: Map<string, ProofInfo>;
@@ -97,7 +98,7 @@ export function buildDareViews(input: DareViewInput) {
       d,
       {
         wallet: input.viewer,
-        joinedAt: input.joinedAtByGroup.get(Number(d.group_id)) ?? null,
+        joinIndex: input.joinIndexByGroup.get(Number(d.group_id)) ?? null,
         hasVoted: input.voted.has(Number(d.id)),
       },
       now,
@@ -122,6 +123,7 @@ export function buildDareViews(input: DareViewInput) {
       proofDeadline: d.proof_deadline,
       voteEnd: d.vote_end,
       eligible: d.eligible,
+      voterSnapshot: d.voter_snapshot ?? null,
       passVotes: d.pass_votes,
       failVotes: d.fail_votes,
       proofHash: d.proof_hash,

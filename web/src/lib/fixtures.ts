@@ -175,6 +175,19 @@ const D_EXPIRED = dare({
   outcome: "Expired",
   createdAt: agoMin(60 * 96),
 });
+const D_NOVOTES = dare({
+  id: 32,
+  text: "do a cartwheel in the office lobby",
+  creator: ADA,
+  target: null,
+  doer: DAYO,
+  amount: wif(2500),
+  payout: wif(2500),
+  burned: "0",
+  state: "Settled",
+  outcome: "NoVotes",
+  createdAt: agoMin(60 * 100),
+});
 const D_CANCELLED = dare({
   id: 33,
   text: "eat a raw onion like an apple",
@@ -237,7 +250,7 @@ export function mockFeed(id: number, mode: "full" | "empty" | "external"): Feed 
   const dares =
     mode === "empty"
       ? []
-      : [D_MINE_OPEN, D_DARED_YOU, D_VOTE, D_OPEN_ANYONE, D_ACCEPTED_MINE, D_SETTLE, D_PASSED, D_FAILED, D_EXPIRED, D_CANCELLED].map((d) => ({
+      : [D_MINE_OPEN, D_DARED_YOU, D_VOTE, D_OPEN_ANYONE, D_ACCEPTED_MINE, D_SETTLE, D_PASSED, D_FAILED, D_EXPIRED, D_NOVOTES, D_CANCELLED].map((d) => ({
           ...d,
           groupId: g.id,
         }));
@@ -281,10 +294,10 @@ const D_PASSED_MINE = dare({
   createdAt: agoMin(60 * 5),
 });
 
-const ALL_DARES = [D_PASSED_MINE, D_MINE_OPEN, D_DARED_YOU, D_VOTE, D_OPEN_ANYONE, D_ACCEPTED_MINE, D_ACCEPTED_OTHER, D_SETTLE, D_PASSED, D_FAILED, D_EXPIRED, D_CANCELLED];
+const ALL_DARES = [D_PASSED_MINE, D_MINE_OPEN, D_DARED_YOU, D_VOTE, D_OPEN_ANYONE, D_ACCEPTED_MINE, D_ACCEPTED_OTHER, D_SETTLE, D_PASSED, D_FAILED, D_EXPIRED, D_NOVOTES, D_CANCELLED];
 
 /** Dare detail fixtures. Ids: 42/41/39 open, 38 accepted (yours), 44 accepted (someone else),
- *  40 voting, 37 ready to settle, 36 passed, 35 failed, 34 expired, 33 cancelled. */
+ *  40 voting, 37 ready to settle, 36 passed, 35 failed, 34 expired, 33 cancelled, 32 no votes. */
 export function mockDare(id: number): DareDetail {
   const d = ALL_DARES.find((x) => x.id === id) ?? D_VOTE;
   return {

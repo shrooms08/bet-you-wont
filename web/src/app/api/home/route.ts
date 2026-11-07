@@ -32,7 +32,7 @@ export const GET = getRoute(async (request: Request) => {
   const views = buildDareViews({
     dares,
     viewer: me,
-    joinedAtByGroup: new Map(groups.map((g) => [g.id, g.joinedAt])),
+    joinIndexByGroup: new Map(groups.map((g) => [g.id, g.joinIndex])),
     voted,
     profiles,
     proofs,

@@ -367,7 +367,7 @@ export const bywEscrowAbi = [
             "internalType": "uint64"
           },
           {
-            "name": "membersAtProof",
+            "name": "voterSnapshot",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -570,7 +570,20 @@ export const bywEscrowAbi = [
   },
   {
     "type": "function",
-    "name": "joinedAt",
+    "name": "maxBounty",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "memberJoinIndex",
     "inputs": [
       {
         "name": "groupId",
@@ -586,21 +599,8 @@ export const bywEscrowAbi = [
     "outputs": [
       {
         "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "maxBounty",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "stateMutability": "view"
@@ -653,10 +653,23 @@ export const bywEscrowAbi = [
   },
   {
     "type": "function",
+    "name": "publicMaxBounty",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "renounceOwnership",
     "inputs": [],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -698,6 +711,19 @@ export const bywEscrowAbi = [
   {
     "type": "function",
     "name": "setMaxBounty",
+    "inputs": [
+      {
+        "name": "newMax",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setPublicMaxBounty",
     "inputs": [
       {
         "name": "newMax",
@@ -998,6 +1024,12 @@ export const bywEscrowAbi = [
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "joinIndex",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
       }
     ],
     "anonymous": false
@@ -1080,6 +1112,19 @@ export const bywEscrowAbi = [
         "type": "uint32",
         "indexed": false,
         "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PublicMaxBountyUpdated",
+    "inputs": [
+      {
+        "name": "newMax",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1298,7 +1343,17 @@ export const bywEscrowAbi = [
   },
   {
     "type": "error",
+    "name": "PublicBountyTooHigh",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RenounceDisabled",
     "inputs": []
   },
   {
