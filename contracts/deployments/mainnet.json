@@ -1,0 +1,49 @@
+{
+  "network": "Robinhood Chain mainnet",
+  "chainId": 4663,
+  "rpcUrl": "https://rpc.mainnet.chain.robinhood.com",
+  "explorerUrl": "https://robinhoodchain.blockscout.com",
+  "contracts": {
+    "WIF": {
+      "address": "0x5173b8eA6923c2d40267890D45C46a3480954773",
+      "name": "World is Flat",
+      "symbol": "WIF",
+      "decimals": 18,
+      "explorer": "https://robinhoodchain.blockscout.com/address/0x5173b8eA6923c2d40267890D45C46a3480954773"
+    },
+    "BYWEscrow": {
+      "address": "0xc8A4e1A956F9AA884D962346123FdC9554Ce713E",
+      "verified": { "sourcify": "exact_match", "blockscout": "not submitted (Cloudflare challenge blocks API clients)" },
+      "sourcify": "https://repo.sourcify.dev/4663/0xc8A4e1A956F9AA884D962346123FdC9554Ce713E",
+      "explorer": "https://robinhoodchain.blockscout.com/address/0xc8A4e1A956F9AA884D962346123FdC9554Ce713E"
+    }
+  },
+  "token": "0x5173b8eA6923c2d40267890D45C46a3480954773",
+  "inviteSigner": "0xa62937A20FBDBa3513d60619d11f28562aa081bf",
+  "deployer": "0x0DAC29759b70D9a0d60A95bf4A8BC1c4Ec9d1779",
+  "owner": "0x0DAC29759b70D9a0d60A95bf4A8BC1c4Ec9d1779",
+  "maxBounty": "500000000000000000000000",
+  "deployBlock": 108275295,
+  "escrowDeployBlock": 108275295,
+  "publicGroupId": 1,
+  "transactions": [
+    {
+      "step": "deploy BYWEscrow",
+      "hash": "0x3831098b050c75a944b47d8d42870c284455ec0fb963dea98ccd5dd370db9137",
+      "block": 108275295,
+      "gasUsed": 2560319,
+      "effectiveGasPriceWei": 20038000,
+      "feeEth": "0.000051303672122",
+      "explorer": "https://robinhoodchain.blockscout.com/tx/0x3831098b050c75a944b47d8d42870c284455ec0fb963dea98ccd5dd370db9137"
+    },
+    {
+      "step": "createGroup(true) -> public wifie 1",
+      "hash": "0x7cb61c4e08688d3117200b2fa1e69cdf027c3e70cc56e1658c3c6d4ef7b3c307",
+      "block": 108276771,
+      "gasUsed": 116310,
+      "effectiveGasPriceWei": 20068000,
+      "feeEth": "0.00000233410908",
+      "explorer": "https://robinhoodchain.blockscout.com/tx/0x7cb61c4e08688d3117200b2fa1e69cdf027c3e70cc56e1658c3c6d4ef7b3c307"
+    }
+  ]
+}

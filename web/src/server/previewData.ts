@@ -1,4 +1,5 @@
 import "server-only";
+import { errLine } from "./redact";
 import { darePreview, type Preview } from "./linkPreview";
 import { DARE_COLUMNS, profilesByWallet, type DareRow, type GroupRow } from "./queries";
 import { check, db } from "./supabase";
@@ -24,7 +25,7 @@ export async function previewForDare(dareId: number): Promise<Preview> {
     }
     return darePreview({ ...dare, doerName }, group);
   } catch (err) {
-    console.error("[preview]", err instanceof Error ? err.message : err);
+    console.error("[preview]", errLine(err));
     return darePreview(null, null);
   }
 }

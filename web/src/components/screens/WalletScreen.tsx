@@ -47,12 +47,14 @@ function WalletMain({ s }: { s: Session }) {
             <a href={PONS_URL} target="_blank" rel="noreferrer" className="press-lip inline-flex min-h-[52px] items-center justify-center rounded-full border-[3px] border-line bg-primary px-6 text-[18px] font-extrabold text-on-primary">
               buy $wif on Pons ↗
             </a>
-            <p className="text-[15px] text-muted">keep a little ETH in the wallet too: every move needs a tiny bit of gas.</p>
+            <p className="text-[15px] text-muted">keep a little ETH in this wallet too: every move needs a tiny bit of gas (less than a cent).</p>
           </>
         ) : (
-          <p className="text-[16px]">testnet: ask the team for test $wif (and a little test ETH).</p>
+          <>
+            <p className="text-[16px]">testnet: ask the team for test $wif (and a little test ETH).</p>
+            <p className="text-[14px] text-muted">every move costs a tiny bit of ETH for gas (less than a cent).</p>
+          </>
         )}
-        <p className="text-[14px] text-muted">every move costs a tiny bit of ETH for gas (less than a cent).</p>
       </section>
 
       <section className="flex flex-col gap-3" aria-label="history">

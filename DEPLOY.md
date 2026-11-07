@@ -1,6 +1,13 @@
 # Deploying BYW (web) to Vercel
 
-The web app is in `web/`. It runs on **RH Chain Testnet** (`NEXT_PUBLIC_NETWORK=testnet`). Contract ABIs and the testnet deployment addresses are bundled in `web/src/abi/`, so the build never reads `../contracts`. If the contracts change, run `npm run sync-abi` locally and commit the result.
+The web app is in `web/`. It runs on **RH Chain mainnet** (chain 4663, `NEXT_PUBLIC_NETWORK=mainnet`); `testnet` still works for local development. Contract ABIs and both deployments (`contracts/deployments/{testnet,mainnet}.json`) are bundled in `web/src/abi/`, so the build never reads `../contracts`. If the contracts or deployments change, run `npm run sync-abi` locally and commit the result.
+
+| Mainnet | |
+|---|---|
+| BYWEscrow | `0xc8A4e1A956F9AA884D962346123FdC9554Ce713E` (deploy block 108275295, Sourcify exact match) |
+| $wif token | `0x5173b8eA6923c2d40267890D45C46a3480954773` |
+| Public wifie | group 1, "world is flat" |
+| Explorer | https://robinhoodchain.blockscout.com |
 
 ## Vercel project settings
 
@@ -21,15 +28,19 @@ Add these in **Project → Settings → Environment Variables**. Never commit re
 
 | Name | Public / secret | Where the value comes from | Example format |
 |---|---|---|---|
-| `NEXT_PUBLIC_NETWORK` | public | Fixed: `testnet` (the active network) | `testnet` |
+| `NEXT_PUBLIC_NETWORK` | public | `mainnet` in production (`testnet` for local testnet work) | `mainnet` |
 | `NEXT_PUBLIC_PRIVY_APP_ID` | public | Privy dashboard → your app → Settings → App ID | short id string, e.g. `cm…` (25 chars) |
 | `PRIVY_APP_SECRET` | **secret** | Privy dashboard → your app → Settings → App secret | long random string (copy exactly) |
 | `INVITE_SIGNER_PRIVATE_KEY` | **secret** | The key of the escrow's `inviteSigner` address (the same value as `INVITE_SIGNER_PRIVATE_KEY` in `contracts/.env`). It signs join permits. | `0x` + 64 hex chars |
 | `NEXT_PUBLIC_SUPABASE_URL` | public | Supabase → Project Settings → API → Project URL | `https://abcdefghijklmnop.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | **secret** | Supabase → Project Settings → API Keys → secret key | `sb_secret_xxxxxxxx…` |
-| `NEXT_PUBLIC_PUBLIC_GROUP_ID` | public | The onchain id of the public "world is flat" wifie (1 on testnet) | `1` |
+| `NEXT_PUBLIC_PUBLIC_GROUP_ID` | public | The onchain id of the public "world is flat" wifie: `1` on mainnet (also 1 on testnet) | `1` |
+| `MAINNET_RPC_QUICKNODE` | **secret** | QuickNode dashboard → your Robinhood Chain mainnet endpoint → HTTP Provider URL. The server's first-choice RPC. The URL contains an API token: server-only, never `NEXT_PUBLIC_`. | `https://<name>.robinhood-mainnet.quiknode.pro/<token>/` |
+| `MAINNET_RPC_GETBLOCK` | **secret** | GetBlock dashboard → Robinhood Chain mainnet endpoint URL. The second-choice RPC (the public RPC is the last fallback). Contains an access token: server-only. | `https://go.getblock.io/<token>` |
 | `NEXT_PUBLIC_APP_URL` | public | Your deployed origin, no trailing slash. It is used for absolute link-preview URLs and printed on share cards. If unset, the app falls back to Vercel's production domain. | `https://bet-you-wont.vercel.app` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public (optional) | Supabase publishable key. The app doesn't read it today: every database call goes through the server. | `sb_publishable_xxxxxxxx…` |
+
+Server RPC order on mainnet: `MAINNET_RPC_QUICKNODE` → `MAINNET_RPC_GETBLOCK` → `https://rpc.mainnet.chain.robinhood.com`. Either private one can be left unset. The browser (wallet, Privy) always uses the public RPC. Error logs strip both private URLs.
 
 `NODE_ENV` is set by Vercel. Don't add it. Dev-only features (`?mock=…` fixtures, `/dev`, the share-card mock) are off in production builds.
 

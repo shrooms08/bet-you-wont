@@ -21,3 +21,6 @@ node_modules/
 /VERIFY.md
 /design/Bet You Won't - 6 Color Harmonies.html
 /web/public/onboarding/Gemini_Generated_Image_*.jpeg
+
+# local database backups (may contain user data)
+/backups/

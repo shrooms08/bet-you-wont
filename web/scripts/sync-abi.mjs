@@ -1,4 +1,4 @@
-// Copies ABIs and testnet addresses from ../contracts into src/abi as typed TS modules,
+// Copies ABIs and the testnet + mainnet deployments from ../contracts into src/abi as typed TS modules,
 // so the web app builds without the contracts directory (e.g. on Vercel).
 // Usage: npm run sync-abi   (run ../contracts/script/export-abi.sh first if the contracts changed)
 import { readFileSync, writeFileSync } from "node:fs";
@@ -30,8 +30,20 @@ const testnet = {
   inviteSigner: t.inviteSigner,
   deployBlock: t.deployBlock,
 };
+const m = JSON.parse(readFileSync(join(contracts, "deployments", "mainnet.json"), "utf8"));
+const mainnet = {
+  chainId: m.chainId,
+  escrow: m.contracts.BYWEscrow.address,
+  token: m.contracts.WIF.address,
+  tokenSymbol: m.contracts.WIF.symbol,
+  inviteSigner: m.inviteSigner,
+  deployBlock: m.deployBlock,
+  explorerUrl: m.explorerUrl,
+  publicGroupId: m.publicGroupId,
+};
 writeFileSync(
   join(out, "deployments.ts"),
-  `${header}export const testnetDeployment = ${JSON.stringify(testnet, null, 2)} as const;\n`,
+  `${header}export const testnetDeployment = ${JSON.stringify(testnet, null, 2)} as const;\n\n` +
+    `export const mainnetDeployment = ${JSON.stringify(mainnet, null, 2)} as const;\n`,
 );
 console.log("wrote src/abi/deployments.ts");

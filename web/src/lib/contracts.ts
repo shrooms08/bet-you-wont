@@ -1,7 +1,7 @@
 import type { Address } from "viem";
 import { bywEscrowAbi } from "@/abi/BYWEscrow";
 import { mockWifAbi } from "@/abi/MockWIF";
-import { testnetDeployment } from "@/abi/deployments";
+import { mainnetDeployment, testnetDeployment } from "@/abi/deployments";
 import { rhChain, rhChainTestnet } from "./chains";
 
 export type NetworkName = "testnet" | "mainnet";
@@ -33,10 +33,10 @@ const NETWORKS: Record<NetworkName, NetworkConfig> = {
   },
   mainnet: {
     chain: rhChain,
-    escrow: null,
-    token: "0x5173b8eA6923c2d40267890D45C46a3480954773", // real $wif
-    tokenSymbol: "WIF",
-    deployBlock: null,
+    escrow: mainnetDeployment.escrow,
+    token: mainnetDeployment.token, // real $wif
+    tokenSymbol: mainnetDeployment.tokenSymbol,
+    deployBlock: BigInt(mainnetDeployment.deployBlock),
   },
 };
 

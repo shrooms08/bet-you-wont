@@ -4,7 +4,7 @@ import { isoWeekKey, shiftWeek, weekEndMs } from "@/lib/isoWeek";
 
 const WEI = BigInt("1000000000000000000");
 export const MIN_SCORING_BOUNTY = BigInt(1000) * WEI; // only dares with bounty >= 1,000 tokens score
-export const BIG_BOUNTY = BigInt(10000) * WEI; // +25 bonus at >= 10,000 tokens
+export const BIG_BOUNTY = BigInt(5000) * WEI; // +25 bonus at >= 5,000 tokens
 export const POINTS = {
   passedDoer: 100,
   bigBounty: 25,

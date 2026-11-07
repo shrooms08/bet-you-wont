@@ -6,7 +6,9 @@ import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { createPublicClient, http, zeroAddress, zeroHash } from "viem";
 
-const deployment = JSON.parse(readFileSync(new URL("../../contracts/deployments/testnet.json", import.meta.url)));
+const net = process.env.NEXT_PUBLIC_NETWORK === "mainnet" ? "mainnet" : "testnet";
+const deployment = JSON.parse(readFileSync(new URL(`../../contracts/deployments/${net}.json`, import.meta.url)));
+console.log(`network: ${net} (public RPC)`);
 const abiJson = JSON.parse(readFileSync(new URL("../../contracts/abi/BYWEscrow.json", import.meta.url)));
 const abi = Array.isArray(abiJson) ? abiJson : abiJson.abi;
 const escrow = deployment.contracts.BYWEscrow.address;

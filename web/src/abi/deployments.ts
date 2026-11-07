@@ -7,3 +7,14 @@ export const testnetDeployment = {
   "inviteSigner": "0xa62937A20FBDBa3513d60619d11f28562aa081bf",
   "deployBlock": 149421187
 } as const;
+
+export const mainnetDeployment = {
+  "chainId": 4663,
+  "escrow": "0xc8A4e1A956F9AA884D962346123FdC9554Ce713E",
+  "token": "0x5173b8eA6923c2d40267890D45C46a3480954773",
+  "tokenSymbol": "WIF",
+  "inviteSigner": "0xa62937A20FBDBa3513d60619d11f28562aa081bf",
+  "deployBlock": 108275295,
+  "explorerUrl": "https://robinhoodchain.blockscout.com",
+  "publicGroupId": 1
+} as const;

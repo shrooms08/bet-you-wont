@@ -16,7 +16,7 @@ import { PillButton, PillLink } from "../ui/PillButton";
 import { EmptyState } from "../ui/States";
 
 const WEI = BigInt("1000000000000000000");
-const QUICK = [5000, 10000, 25000];
+const QUICK = [1000, 2500, 5000];
 const DO_TIMES: Array<[number, string]> = [
   [3600, "1h"],
   [86400, "24h"],

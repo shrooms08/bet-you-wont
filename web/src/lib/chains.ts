@@ -15,7 +15,7 @@ export const rhChainTestnet = defineChain({
   testnet: true,
 });
 
-// Config only: no BYW contracts are deployed on mainnet yet.
+// Explorer from Robinhood's network docs (docs.robinhood.com/chain/connecting).
 export const rhChain = defineChain({
   id: 4663,
   name: "RH Chain",

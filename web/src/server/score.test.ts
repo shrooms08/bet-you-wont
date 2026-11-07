@@ -26,7 +26,7 @@ const NOW = Date.parse("2026-11-04T12:00:00Z");
 const at = (iso: string) => new Date(iso).toISOString();
 
 function dare(p: Partial<ScoreDare> & { id: number }): ScoreDare {
-  return { groupId: 7, creator: A, doer: B, amount: tok(5000), state: "Settled", outcome: "Passed", payout: tok(4750), burned: tok(250), settledAt: at("2026-11-03T10:00:00Z"), ...p };
+  return { groupId: 7, creator: A, doer: B, amount: tok(2000), state: "Settled", outcome: "Passed", payout: tok(1900), burned: tok(100), settledAt: at("2026-11-03T10:00:00Z"), ...p };
 }
 const run = (dares: ScoreDare[], votes: ScoreVote[] = [], freezes: Array<{ wallet: string; week: string; amount: bigint }> = [], now = NOW) =>
   computeScores({ dares, votes, freezes }, now);
@@ -56,14 +56,15 @@ describe("ISO weeks (UTC)", () => {
 });
 
 describe("scoring rules", () => {
-  it("passed: doer +100, creator +40; +25 bonus at >= 10,000 tokens", () => {
+  it("passed: doer +100, creator +40; +25 bonus at >= 5,000 tokens", () => {
     const s = run([dare({ id: 1 })]);
     expect(s.stats.get(B)!.score).toBe(100);
     expect(s.stats.get(A)!.score).toBe(40);
-    const big = run([dare({ id: 2, amount: tok(10000) })]);
+    const big = run([dare({ id: 2, amount: tok(5000) })]);
     expect(big.stats.get(B)!.score).toBe(125);
     expect(pointsFromDare(big.events, 2, B)).toBe(125);
-    expect(run([dare({ id: 3, amount: tok(9999) })]).stats.get(B)!.score).toBe(100);
+    expect(run([dare({ id: 3, amount: tok(4999) })]).stats.get(B)!.score).toBe(100);
+    expect(run([dare({ id: 4, amount: tok(10000) })]).stats.get(B)!.score).toBe(125); // still one +25, not stacked
   });
   it("failed: doer +10 (proof posted, voted down), creator nothing", () => {
     const s = run([dare({ id: 1, outcome: "Failed" })]);
@@ -152,7 +153,7 @@ describe("streaks and multiplier", () => {
     const s = run([
       dare({ id: 1, settledAt: at("2026-10-20T10:00:00Z") }),
       dare({ id: 2, settledAt: at("2026-10-27T10:00:00Z") }),
-      dare({ id: 3, settledAt: at("2026-11-03T10:00:00Z"), amount: tok(10000) }),
+      dare({ id: 3, settledAt: at("2026-11-03T10:00:00Z"), amount: tok(5000) }),
       dare({ id: 4, settledAt: at("2026-11-03T11:00:00Z"), outcome: "Expired", creator: C }),
     ]);
     expect(pointsFromDare(s.events, 1, B)).toBe(100);
@@ -192,7 +193,7 @@ describe("streaks and multiplier", () => {
 describe("stats and leaderboard", () => {
   it("dares done/dared, $wif won and burned (bounties you put up + freezes)", () => {
     const s = run([
-      dare({ id: 1 }),
+      dare({ id: 1, amount: tok(5000), payout: tok(4750), burned: tok(250) }),
       dare({ id: 2, outcome: "Failed", payout: tok(4500), burned: tok(500) }),
       dare({ id: 3, state: "Cancelled", outcome: "None", payout: null, burned: null }),
     ]);

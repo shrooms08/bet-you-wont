@@ -243,7 +243,7 @@ function StepSignIn({ s, onMock, onUnder18 }: { s: Session; onMock: () => void; 
           <StatusTag kind="OPEN" />
         </div>
         <DareText text="wear socks with sandals to brunch" size="sm" />
-        <Money wei={(BigInt(10000) * BigInt(10) ** BigInt(18)).toString()} size="sm" />
+        <Money wei={(BigInt(2500) * BigInt(10) ** BigInt(18)).toString()} size="sm" />
       </div>
       <div className="mt-auto flex flex-col gap-3">
         <AgeCheckbox checked={adult} onChange={setAdult} />
