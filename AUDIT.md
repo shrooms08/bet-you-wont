@@ -31,7 +31,7 @@ The app-side fixes for the other findings are listed in "Audit fixes" above.
 
 ## Audit fixes (2026-11-07, app-only)
 
-Contract fixes are in `9ab12e8`. Every other fix is in the app commit `__APPFIX__` ("Audit fixes: app security, legal pages, reports, deletion"). That commit adds no contract changes. Its SQL is `supabase/migrations/005_audit_fixes.sql`, applied and verified.
+Contract fixes are in `9ab12e8`. Every other fix is in the app commit `5d75368` ("Audit fixes: app security, legal pages, reports, deletion"). That commit adds no contract changes. Its SQL is `supabase/migrations/005_audit_fixes.sql`, applied and verified.
 
 | ID | Status | What changed |
 |---|---|---|
