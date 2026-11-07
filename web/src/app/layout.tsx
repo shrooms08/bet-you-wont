@@ -23,6 +23,17 @@ export const metadata: Metadata = {
   description: SITE_DESCRIPTION,
   openGraph: { type: "website", siteName: SITE_TITLE, title: SITE_TITLE, description: SITE_DESCRIPTION, images: [{ ...DEFAULT_OG_IMAGE }] },
   twitter: { card: "summary_large_image", title: SITE_TITLE, description: SITE_DESCRIPTION, images: [{ url: DEFAULT_OG_IMAGE.url, alt: DEFAULT_OG_IMAGE.alt }] },
+  // Built from public/brand/byw-mark.svg by scripts/icons.mjs. The manifest is src/app/manifest.ts.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: { capable: true, title: "BYW", statusBarStyle: "black" },
 };
 
 export const viewport: Viewport = {

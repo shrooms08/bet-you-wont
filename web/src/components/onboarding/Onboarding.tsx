@@ -1,5 +1,6 @@
 "use client";
 
+import { Logo } from "@/components/brand/Logo";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useState, type ReactNode } from "react";
@@ -207,6 +208,7 @@ function InviteNote({ invite }: { invite: InvitePreview }) {
           {invite.memberCount} {invite.memberCount === 1 ? "person" : "people"} · {invite.isPublic ? "public" : "invite only"}
         </span>
       </p>
+      <Logo size={26} className="ml-auto shrink-0" />
     </div>
   );
 }
@@ -228,6 +230,7 @@ function StepSignIn({ s, onMock, onUnder18 }: { s: Session; onMock: () => void; 
           <Sticker src="/onboarding/signin-hero.png" alt="someone with a traffic cone on their head doing peace signs" rotate={5} width={150} float />
         </div>
         <div className="relative z-10 max-w-[300px]">
+          <Logo size={52} className="mb-5" />
           <Headline line1="bet you" line2="won't." accent="lime" size="xl" />
           <p className="mt-4 inline-block -rotate-3 rounded-full border-[3px] border-line bg-primary px-5 py-1.5 font-hand text-[30px] tracking-normal text-on-primary shadow-lip">
             hold my wif

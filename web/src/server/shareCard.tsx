@@ -64,7 +64,7 @@ function Flame({ n }: { n: number }) {
 }
 
 /** The 1080x1920 share card. */
-function Card({ d, media, avatar, appUrl }: { d: DareView; media: string | null; avatar: string | null; appUrl: string }) {
+function Card({ d, media, avatar, mark, appUrl }: { d: DareView; media: string | null; avatar: string | null; mark: string; appUrl: string }) {
   const { key, rest } = splitKeyPhrase(d.text);
   const stamp = d.state === "Voting" ? STAMP.Voting : STAMP[d.outcome] ?? null;
   const doer = d.doer ?? d.target;
@@ -136,12 +136,26 @@ function Card({ d, media, avatar, appUrl }: { d: DareView; media: string | null;
       </div>
 
       {/* footer */}
-      <div style={{ display: "flex", marginTop: "auto", justifyContent: "space-between", alignItems: "flex-end", borderTop: `4px solid ${C.border}`, paddingTop: 30 }}>
-        <span style={{ fontFamily: "Archivo Black", fontSize: 40, color: C.lime }}>BET YOU WON&apos;T · HOLD MY WIF</span>
-        <span style={{ fontSize: 34, color: C.muted }}>{appUrl.replace(/^https?:\/\//, "")}</span>
+      <div style={{ display: "flex", marginTop: "auto", alignItems: "center", gap: 24, borderTop: `4px solid ${C.border}`, paddingTop: 30 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- next/og renders plain img */}
+        <img src={mark} width={133} height={80} alt="" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ fontFamily: "Archivo Black", fontSize: 40, color: C.lime }}>BET YOU WON&apos;T · HOLD MY WIF</span>
+          <span style={{ fontSize: 32, color: C.muted }}>{appUrl.replace(/^https?:\/\//, "")}</span>
+        </div>
       </div>
     </div>
   );
+}
+
+/** The BYW mark (public/brand/byw-mark.svg) as a data URI, cropped to the mark like <Logo>. */
+let markUri: Promise<string> | null = null;
+function loadMark(): Promise<string> {
+  markUri ??= readFile(join(process.cwd(), "public/brand/byw-mark.svg"), "utf8").then((svg) => {
+    const cropped = svg.replace(/width="1024" height="1024" viewBox="0 0 1024 1024"/, 'width="942" height="568" viewBox="41 228 942 568"');
+    return `data:image/svg+xml;base64,${Buffer.from(cropped).toString("base64")}`;
+  });
+  return markUri;
 }
 
 // small per-process cache: one PNG per dare state
@@ -190,8 +204,8 @@ export async function renderShareCard(d: DareView, appUrl: string): Promise<Arra
   let png = cache.get(key);
   if (!png) {
     const isVideo = d.proofKind === "video" || d.proofMime?.startsWith("video/");
-    const [media, avatar] = await Promise.all([imageData(isVideo ? d.posterUrl : d.proofUrl), imageData((d.doer ?? d.target)?.avatarUrl)]);
-    const img = new ImageResponse(<Card d={d} media={media} avatar={avatar} appUrl={appUrl} />, { width: W, height: H, fonts: await loadFonts() });
+    const [media, avatar, mark] = await Promise.all([imageData(isVideo ? d.posterUrl : d.proofUrl), imageData((d.doer ?? d.target)?.avatarUrl), loadMark()]);
+    const img = new ImageResponse(<Card d={d} media={media} avatar={avatar} mark={mark} appUrl={appUrl} />, { width: W, height: H, fonts: await loadFonts() });
     png = await img.arrayBuffer();
     if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value!);
     cache.set(key, png);

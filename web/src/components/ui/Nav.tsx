@@ -2,6 +2,7 @@
 
 import { motion } from "motion/react";
 import Link from "next/link";
+import { Logo } from "@/components/brand/Logo";
 import type { ReactNode } from "react";
 import { springs } from "@/lib/motion";
 import { useMockMode, withMock } from "@/lib/mock";
@@ -66,7 +67,8 @@ export function DesktopRail({ active, me, balance }: { active?: NavKey; me: Publ
   const mock = useMockMode();
   return (
     <aside className="sticky top-0 hidden h-dvh w-[260px] shrink-0 flex-col border-r-[3px] border-line px-6 py-8 desk:flex">
-      <Link href={withMock("/home", mock)} className="mb-8 font-display text-[28px] uppercase leading-[0.9] tracking-[-0.03em]">
+      <Link href={withMock("/home", mock)} className="mb-8 font-display text-[28px] uppercase leading-[0.9] tracking-[-0.03em]" aria-label="bet you won't home">
+        <Logo size={44} decorative className="mb-4" />
         <span className="block text-accent-2">bet you</span>
         <span className="block">won&apos;t.</span>
       </Link>

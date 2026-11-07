@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Logo } from "@/components/brand/Logo";
 import { useRouter } from "next/navigation";
 import { useBalances, useHome, type Session } from "@/hooks/data";
 import { useActions } from "@/hooks/useActions";
@@ -22,7 +23,8 @@ function TopBar({ s }: { s: Session }) {
   const balances = useBalances(s);
   return (
     <div className="flex items-center justify-between gap-3">
-      <Link href={withMock("/home", mock)} className="font-display text-[30px] uppercase leading-none tracking-[-0.03em] text-accent-2 desk:invisible" aria-label="bet you won't home">
+      <Link href={withMock("/home", mock)} className="flex items-center gap-2.5 font-display text-[30px] uppercase leading-none tracking-[-0.03em] text-accent-2 desk:invisible" aria-label="bet you won't home">
+        <Logo size={30} decorative />
         BYW
       </Link>
       <Link href={withMock("/wallet", mock)} className="press flex min-h-11 items-center gap-1.5 rounded-full border-[3px] border-line bg-surface px-4 text-[15px] font-extrabold" aria-label="your wallet balance">
